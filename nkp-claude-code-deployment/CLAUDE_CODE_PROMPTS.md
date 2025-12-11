@@ -1,6 +1,6 @@
-# Claude Code Prompts for NKP Deployment
+# AI Agent Prompts for NKP Deployment
 
-This document contains structured prompts designed for Claude Code to deploy Nutanix Kubernetes Platform (NKP) 2.16. Use these prompts sequentially or adapt them to your specific deployment scenario.
+This document contains structured prompts designed for any capable coding agent to deploy Nutanix Kubernetes Platform (NKP) 2.16. Use these prompts sequentially or adapt them to your specific deployment scenario.
 
 ---
 
@@ -409,7 +409,7 @@ At each major step, report status. On any failure, stop and provide diagnostics 
 
 ## 📁 CONTEXT FILES TO PROVIDE
 
-When starting a Claude Code session for NKP deployment, provide these files:
+When starting an AI agent session for NKP deployment, provide these files:
 
 1. `nkp-deployment-spec.yaml` - Main configuration
 2. `environment.env` - Environment variables
@@ -422,12 +422,12 @@ When starting a Claude Code session for NKP deployment, provide these files:
 
 ---
 
-## 💡 TIPS FOR EFFECTIVE CLAUDE CODE USAGE
+## 💡 TIPS FOR EFFECTIVE AGENT USAGE
 
 1. **Start with validation**: Always run prerequisite checks first
 2. **Provide complete context**: Include all configuration files upfront
 3. **Use incremental prompts**: For complex environments, use phase-specific prompts
-4. **Enable verbose output**: Ask Claude Code to show command output for debugging
+4. **Enable verbose output**: Ask the agent to show command output for debugging
 5. **Save state**: After each phase, confirm successful completion before proceeding
 6. **Handle secrets carefully**: Use environment variables, not inline secrets
-7. **Plan for rollback**: Ask Claude Code to document each step for potential rollback
+7. **Plan for rollback**: Ask the agent to document each step for potential rollback

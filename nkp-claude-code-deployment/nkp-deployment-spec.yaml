@@ -1,11 +1,11 @@
 # NKP Deployment Specification
 # This file defines the complete configuration for an NKP 2.16 deployment
-# Used by Claude Code to automate the deployment process
+# Used by automation agents or scripts to drive the deployment process
 #
 # Instructions:
 # 1. Fill in all required values (marked with <REQUIRED>)
 # 2. Review optional values and adjust as needed
-# 3. Provide this file to Claude Code along with the prompts
+# 3. Provide this file to your automation agent along with the prompts
 
 apiVersion: nkp.nutanix.com/v1alpha1
 kind: DeploymentSpec

@@ -1,6 +1,6 @@
-# Parallelized NKP Deployment Prompts for Claude Code
+# Parallelized NKP Deployment Prompts for Any Agent
 
-This document contains prompts optimized for parallel execution using Claude Code's sub-agent capabilities. Sub-agents can dramatically reduce deployment time by running independent tasks concurrently.
+This document contains prompts optimized for parallel execution using AI agents that support parallel tasks or sub-agents. They can dramatically reduce deployment time by running independent tasks concurrently.
 
 ---
 
@@ -415,9 +415,9 @@ The biggest savings come from:
 
 ---
 
-## 🔧 Sub-Agent Spawn Syntax for Claude Code
+## 🔧 Sub-Agent Spawn Syntax for Agents That Support It
 
-When Claude Code supports explicit sub-agent spawning, use patterns like:
+When your automation agent supports explicit sub-agent spawning, use patterns like:
 
 ```
 # Conceptual sub-agent spawning
@@ -431,7 +431,7 @@ await_all_subagents()
 aggregate_results()
 ```
 
-For now, instruct Claude Code to:
+For agents without built-in sub-agent support, instruct them to:
 1. Open multiple terminal sessions
 2. Run independent scripts concurrently
 3. Monitor all outputs
