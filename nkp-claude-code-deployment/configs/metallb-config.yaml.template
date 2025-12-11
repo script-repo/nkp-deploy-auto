@@ -1,0 +1,68 @@
+# MetalLB Configuration for NKP
+# Apply this after cluster creation to enable LoadBalancer services
+#
+# Prerequisites:
+# - MetalLB pods must be running in metallb-system namespace
+# - IP range must be in the same subnet as cluster nodes
+# - IP range must not overlap with DHCP scope or existing allocations
+
+---
+# IPAddressPool defines the range of IPs that MetalLB can assign
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: default
+  namespace: metallb-system
+spec:
+  # Replace with your IP range
+  # Format: start-end or CIDR notation
+  addresses:
+    - ${METALLB_IP_RANGE}  # e.g., 192.168.1.240-192.168.1.250
+
+---
+# L2Advertisement configures Layer 2 mode (ARP-based)
+# This is the simplest mode and works without special network configuration
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: default
+  namespace: metallb-system
+spec:
+  ipAddressPools:
+    - default
+  # Optional: limit advertisement to specific interfaces
+  # interfaces:
+  #   - eth0
+
+# =============================================================================
+# ALTERNATIVE: BGP Configuration (uncomment if using BGP mode)
+# =============================================================================
+# BGP mode provides true load balancing through ECMP routing
+# Requires BGP-capable routers and network team coordination
+
+# ---
+# apiVersion: metallb.io/v1beta2
+# kind: BGPPeer
+# metadata:
+#   name: router1
+#   namespace: metallb-system
+# spec:
+#   myASN: 64500           # AS number for MetalLB
+#   peerASN: 64501         # AS number of your router
+#   peerAddress: 10.0.0.1  # Router IP address
+#   # Optional settings:
+#   # holdTime: 90s
+#   # keepaliveTime: 30s
+
+# ---
+# apiVersion: metallb.io/v1beta1
+# kind: BGPAdvertisement
+# metadata:
+#   name: default
+#   namespace: metallb-system
+# spec:
+#   ipAddressPools:
+#     - default
+#   # Optional: communities
+#   # communities:
+#   #   - 64500:100

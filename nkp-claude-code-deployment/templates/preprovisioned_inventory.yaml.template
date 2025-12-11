@@ -1,0 +1,104 @@
+# PreprovisionedInventory Template for NKP
+# This file defines the nodes for a pre-provisioned NKP cluster
+#
+# Replace all ${VARIABLE} placeholders with actual values
+# or source environment.env to have them substituted automatically
+
+---
+# Control Plane Inventory
+# Defines the nodes that will run the Kubernetes control plane
+apiVersion: infrastructure.cluster.konvoy.d2iq.io/v1alpha1
+kind: PreprovisionedInventory
+metadata:
+  name: ${CLUSTER_NAME}-control-plane
+  namespace: default
+  labels:
+    # These labels are required for CAPI to manage the inventory
+    cluster.x-k8s.io/cluster-name: ${CLUSTER_NAME}
+    clusterctl.cluster.x-k8s.io/move: ""
+spec:
+  hosts:
+    # List all control plane nodes
+    # For HA, use 3, 5, or 7 nodes
+    - address: ${CONTROL_PLANE_1_ADDRESS}
+      # Optional: hostname: cp1
+    - address: ${CONTROL_PLANE_2_ADDRESS}
+      # Optional: hostname: cp2
+    - address: ${CONTROL_PLANE_3_ADDRESS}
+      # Optional: hostname: cp3
+    # Add more as needed for 5 or 7 node control planes
+  sshConfig:
+    port: 22
+    user: ${SSH_USER}
+    privateKeyRef:
+      # Reference to the SSH key secret
+      # Created automatically by nkp create cluster command
+      name: ${SSH_PRIVATE_KEY_SECRET_NAME}
+      namespace: default
+
+---
+# Worker Pool Inventory (md-0 = Machine Deployment 0)
+# Defines the default worker node pool
+apiVersion: infrastructure.cluster.konvoy.d2iq.io/v1alpha1
+kind: PreprovisionedInventory
+metadata:
+  name: ${CLUSTER_NAME}-md-0
+  namespace: default
+  labels:
+    cluster.x-k8s.io/cluster-name: ${CLUSTER_NAME}
+    clusterctl.cluster.x-k8s.io/move: ""
+spec:
+  hosts:
+    # List all worker nodes for the default pool
+    - address: ${WORKER_1_ADDRESS}
+    - address: ${WORKER_2_ADDRESS}
+    - address: ${WORKER_3_ADDRESS}
+    - address: ${WORKER_4_ADDRESS}
+    # Add more worker nodes as needed
+  sshConfig:
+    port: 22
+    user: ${SSH_USER}
+    privateKeyRef:
+      name: ${SSH_PRIVATE_KEY_SECRET_NAME}
+      namespace: default
+
+# =============================================================================
+# OPTIONAL: Additional Worker Pools
+# =============================================================================
+# Create additional pools for specialized workloads (GPU, high-memory, etc.)
+
+# ---
+# apiVersion: infrastructure.cluster.konvoy.d2iq.io/v1alpha1
+# kind: PreprovisionedInventory
+# metadata:
+#   name: ${CLUSTER_NAME}-gpu-workers
+#   namespace: default
+#   labels:
+#     cluster.x-k8s.io/cluster-name: ${CLUSTER_NAME}
+#     clusterctl.cluster.x-k8s.io/move: ""
+# spec:
+#   hosts:
+#     - address: 192.168.1.81
+#     - address: 192.168.1.82
+#   sshConfig:
+#     port: 22
+#     user: ${SSH_USER}
+#     privateKeyRef:
+#       name: ${SSH_PRIVATE_KEY_SECRET_NAME}
+#       namespace: default
+
+# =============================================================================
+# NODE REQUIREMENTS CHECKLIST
+# =============================================================================
+# Before deployment, ensure each node has:
+#
+# [ ] Supported OS installed (Rocky 9.5/9.6, RHEL 8.10, Ubuntu 22.04)
+# [ ] SSH access configured for specified user
+# [ ] Passwordless sudo enabled for SSH user
+# [ ] Swap disabled (swapoff -a and removed from /etc/fstab)
+# [ ] iscsid service enabled and running (for storage)
+# [ ] firewalld disabled or properly configured
+# [ ] Minimum 15% free space on root filesystem
+# [ ] Time synchronized via NTP
+# [ ] Network connectivity to all other nodes
+# [ ] Required ports available (6443, 2379-2380, 10250-10252, etc.)
