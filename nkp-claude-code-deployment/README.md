@@ -1,12 +1,13 @@
-# NKP Deployment Package for Claude Code
+# NKP Deployment Package for Automation Agents
 
-This package provides everything needed to deploy Nutanix Kubernetes Platform (NKP) 2.16 using Claude Code as an automated deployment agent.
+This package provides everything needed to deploy Nutanix Kubernetes Platform (NKP) 2.16 using any capable coding agent (Claude Code, GitHub Copilot Workspace, Cursor, etc.) or by running the included scripts directly.
 
 ## 📁 Package Contents
 
 ```
 nkp-claude-code-deployment/
-├── CLAUDE_CODE_PROMPTS.md      # Prompts for Claude Code
+├── CLAUDE_CODE_PROMPTS.md      # Prompts for any AI agent
+├── AGENT_AUTOMATION_GUIDE.md   # How to run with GPT-5, Claude Code, OpenAI-compatible models
 ├── nkp-deployment-spec.yaml    # Main deployment specification
 ├── environment.env.template    # Environment variables template
 ├── README.md                   # This file
@@ -14,6 +15,7 @@ nkp-claude-code-deployment/
 │   └── metallb-config.yaml.template
 ├── scripts/
 │   ├── deploy-nkp.sh           # Main deployment script
+│   ├── parallel-deploy-and-verify.sh # Parallelized runner with verification
 │   ├── validate-prerequisites.sh
 │   └── verify-deployment.sh
 └── templates/
@@ -40,30 +42,29 @@ nkp-claude-code-deployment/
    chmod 600 ~/.ssh/id_rsa
    ```
 
-### Step 2: Start Claude Code Session
+### Step 2: Choose Your Automation Path
 
-Launch Claude Code in this directory:
-```bash
-cd nkp-claude-code-deployment
-claude
-```
+- **Use an AI agent**: launch your preferred agent in this directory (e.g., `OpenAI GPT-5` in ChatGPT or an IDE plugin, `Claude Code`, `GitHub Copilot Workspace`, Cursor, or any OpenAI-compatible model) and add context files:
+  ```bash
+  cd nkp-claude-code-deployment
+  /add environment.env nkp-deployment-spec.yaml CLAUDE_CODE_PROMPTS.md
+  ```
+  Then paste the Master Deployment Prompt from `CLAUDE_CODE_PROMPTS.md`.
 
-### Step 3: Provide Context Files
+- **Run scripts directly (no agent required)**: make the scripts executable and invoke either the end-to-end runner or the new parallelized workflow with automatic verification:
+  ```bash
+  cd nkp-claude-code-deployment
+  chmod +x scripts/*.sh
+  # Fully sequential flow
+  ./scripts/deploy-nkp.sh
 
-When Claude Code starts, provide the configuration files:
-```
-/add environment.env nkp-deployment-spec.yaml CLAUDE_CODE_PROMPTS.md
-```
+  # Parallel validation/prep + automated verification
+  ./scripts/parallel-deploy-and-verify.sh
+  ```
 
-### Step 4: Use the Master Deployment Prompt
+### Agent-Specific Runbooks
 
-Copy and paste the Master Deployment Prompt from `CLAUDE_CODE_PROMPTS.md`, or use:
-
-```
-Read the CLAUDE_CODE_PROMPTS.md file and execute the Master Deployment Prompt 
-using the configuration from environment.env and nkp-deployment-spec.yaml.
-Deploy NKP 2.16 on pre-provisioned infrastructure with full verification.
-```
+Detailed, step-by-step instructions for `OpenAI GPT-5`, `Claude Code`, and any OpenAI-compatible model (e.g., LM Studio, LocalAI, or Ollama with an OpenAI API shim) are available in [`AGENT_AUTOMATION_GUIDE.md`](AGENT_AUTOMATION_GUIDE.md). Use it to launch an agent session with the right context files, apply the correct prompts, and drive the new parallelized runner.
 
 ## 📋 Detailed Usage
 
@@ -88,7 +89,7 @@ Report progress at each step and stop on any critical errors.
 
 ### Option B: Phase-by-Phase Deployment
 
-For more control, use phase-specific prompts from `CLAUDE_CODE_PROMPTS.md`:
+For more control, use phase-specific prompts from `CLAUDE_CODE_PROMPTS.md` with any agent that can execute shell commands:
 
 1. **Validation Phase**:
    ```
@@ -110,7 +111,7 @@ For more control, use phase-specific prompts from `CLAUDE_CODE_PROMPTS.md`:
 
 ### Option C: Manual Script Execution
 
-Have Claude Code run the scripts directly:
+Run the scripts yourself or have any automation agent execute them:
 
 ```
 Make the deployment scripts executable and run the full deployment:
@@ -203,7 +204,7 @@ L2Advertisement is created, and speaker pods are running.
 
 ### Getting Help
 
-Ask Claude Code for diagnostics:
+Ask your agent or run directly for diagnostics:
 ```
 Generate a support bundle and diagnose the current deployment state.
 Run: nkp diagnose --kubeconfig ${CLUSTER_NAME}.conf -o support-bundle.tar.gz

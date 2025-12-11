@@ -1,6 +1,6 @@
 # NKP Deployment Project
 
-This project automates the deployment of Nutanix Kubernetes Platform (NKP) 2.16 on pre-provisioned infrastructure.
+This project automates the deployment of Nutanix Kubernetes Platform (NKP) 2.16 on pre-provisioned infrastructure. You can drive it with any capable AI coding agent or by running the provided shell scripts directly.
 
 ## Project Context
 
@@ -15,7 +15,7 @@ You are helping deploy an enterprise Kubernetes cluster using NKP. The deploymen
 
 - `environment.env` - Environment variables with deployment configuration
 - `nkp-deployment-spec.yaml` - Detailed deployment specification
-- `CLAUDE_CODE_PROMPTS.md` - Structured prompts for deployment phases
+- `CLAUDE_CODE_PROMPTS.md` - Structured prompts for deployment phases (agent-friendly)
 - `scripts/` - Helper scripts for deployment automation
 - `configs/` - Configuration templates
 - `templates/` - YAML templates

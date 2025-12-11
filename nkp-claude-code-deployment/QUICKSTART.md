@@ -1,10 +1,10 @@
-# NKP Deployment Quick Start for Claude Code
+# NKP Deployment Quick Start for Any Agent or Direct Scripts
 
 ## 🚀 One-Command Start
 
 ```bash
-# In Claude Code session:
-Read the files in this directory and deploy NKP 2.16 using the Master Deployment 
+# In your AI agent session (or manually):
+Read the files in this directory and deploy NKP 2.16 using the Master Deployment
 Prompt from CLAUDE_CODE_PROMPTS.md. Use environment.env for configuration.
 ```
 
@@ -38,18 +38,25 @@ SSH_PRIVATE_KEY_FILE="~/.ssh/id_rsa"
 METALLB_IP_RANGE="192.168.1.240-192.168.1.250"
 ```
 
-## 🔧 Claude Code Session Commands
+## 🔧 Agent Session Commands
 
 ```bash
-# Start Claude Code in deployment directory
+# Start your preferred agent in the deployment directory (e.g., claude, copilot-workspace, IDE agent)
 cd nkp-claude-code-deployment
-claude
 
-# Add context files
+# Add context files (syntax may vary by tool)
 /add environment.env nkp-deployment-spec.yaml CLAUDE_CODE_PROMPTS.md
 
-# Then paste the Master Deployment Prompt
+# Then paste the Master Deployment Prompt or run scripts directly
 ```
+
+### Agent Kickoffs by Platform
+
+- **OpenAI GPT-5 (ChatGPT or IDE plugin)**: Share `environment.env`, `nkp-deployment-spec.yaml`, and `CLAUDE_CODE_PROMPTS.md`, then ask: “Deploy NKP 2.16 by running ./scripts/parallel-deploy-and-verify.sh and report progress for each phase.”
+- **Claude Code (CLI/VS Code/Cursor)**: Add the same context files, run `./scripts/parallel-deploy-and-verify.sh`, and request failing logs from `logs/` if anything stops.
+- **Any OpenAI-compatible model (LM Studio, LocalAI, Ollama with OpenAI API)**: Point your client to the API base, attach `environment.env`, and issue the same instruction to execute `./scripts/parallel-deploy-and-verify.sh`.
+
+For deeper instructions, see `AGENT_AUTOMATION_GUIDE.md`.
 
 ## 📋 Phase-by-Phase Prompts
 
@@ -88,6 +95,24 @@ nkp install kommander --installer-config kommander.yaml
 
 # Get dashboard access
 nkp get dashboard
+```
+
+## 🖥️ Script-Only Automation (No Agent)
+
+If you prefer to automate without an agent session, use the bundled scripts:
+
+```bash
+cd nkp-claude-code-deployment
+chmod +x scripts/*.sh
+
+# Validate prerequisites
+./scripts/validate-prerequisites.sh
+
+# Run full deployment (includes validation and verification)
+./scripts/deploy-nkp.sh
+
+# Run parallel validation/prep plus automated verification
+./scripts/parallel-deploy-and-verify.sh
 ```
 
 ## ✅ Verification Commands
