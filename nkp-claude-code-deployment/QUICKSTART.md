@@ -8,6 +8,13 @@ Read the files in this directory and deploy NKP 2.16 using the Master Deployment
 Prompt from CLAUDE_CODE_PROMPTS.md. Use environment.env for configuration.
 ```
 
+On a fresh Rocky Linux bastion, you can also prepare the host and launch the web UI with a single command so the remainder of the workflow happens in the browser:
+
+```bash
+cd nkp-claude-code-deployment
+sudo scripts/install-deps-run-ui.sh
+```
+
 ## 📝 Essential Configuration (environment.env)
 
 Fill in these required values before deployment:

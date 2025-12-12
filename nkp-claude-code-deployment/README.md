@@ -24,6 +24,17 @@ nkp-claude-code-deployment/
 
 ## 🚀 Quick Start
 
+### Step 0: One-Command Bastion Prep + UI Launch (Rocky Linux)
+
+On a fresh Rocky Linux bastion, run a single command to install Docker CE, kubectl, Helm 3, SSH, open the UI port (8080) when `firewalld` is active, provision Python, install UI dependencies, seed `environment.env` from the template, and start the web dashboard. Run as root or with sudo:
+
+```bash
+cd nkp-claude-code-deployment
+sudo scripts/install-deps-run-ui.sh
+```
+
+When the script completes, open `http://<bastion-ip>:8080` and perform the remainder of the workflow entirely from the UI (fill in configuration, save, and launch deployments). The installer is idempotent and will skip tools that are already present.
+
 ### Step 1: Prepare Your Environment
 
 1. Copy `environment.env.template` to `environment.env`:

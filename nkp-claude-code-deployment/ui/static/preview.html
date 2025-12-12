@@ -1,0 +1,801 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>NKP Bastion Deployment Dashboard (Preview)</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="page">
+    <header class="hero">
+        <div class="hero-copy">
+            <p class="eyebrow">Bastion-host UI</p>
+            <h1>NKP Deployment Control</h1>
+            <p class="subtitle">Review the automated and phased workflows, capture deployment variables, and watch real-time progress without leaving your browser.</p>
+            <div class="mode-toggle">
+                <label>
+                    <input type="radio" name="mode" value="automated" checked>
+                    Automated (Parallel deploy + verify)
+                </label>
+                <label>
+                    <input type="radio" name="mode" value="phased">
+                    Phased (run steps individually)
+                </label>
+            </div>
+            <div class="inline-status">
+                <span class="dot green" id="connection-dot"></span>
+                <span id="connection-label">Preview mode — offline</span>
+                <span class="divider">•</span>
+                <span class="status-pill" id="status-text">Idle</span>
+            </div>
+        </div>
+        <div class="actions">
+            <button id="save-config" class="btn ghost" type="button">💾 Save configuration</button>
+            <button id="launch" class="btn primary" type="button">🚀 Launch deployment</button>
+        </div>
+    </header>
+
+    <main class="grid">
+        <section class="card form-card">
+            <div class="card-header">
+                <div>
+                    <p class="eyebrow">Configuration</p>
+                    <h2>Deployment variables</h2>
+                    <p class="muted">All scripts draw from this form. Fields marked with <span class="required">*</span> are required.</p>
+                </div>
+                <div class="header-actions">
+                    <span class="badge">Hover tooltips explain every field</span>
+                    <span id="save-status" class="muted">Preview only</span>
+                </div>
+            </div>
+            <form id="config-form">
+                <div class="section-list">
+            <div class="section">
+                <div class="section-header">
+                    <div>
+                        <p class="eyebrow">Cluster</p>
+                        <p class="muted">Name and node endpoints for your management cluster.</p>
+                    </div>
+                    <span class="pill">cluster</span>
+                </div>
+                <div class="field-grid">
+
+<div class="field">
+    <label>
+        Cluster name
+        <span class="tooltip" title="Unique identifier for the NKP cluster.">?</span>
+        <span class="required">*</span>
+    </label>
+    <input type="text" name="CLUSTER_NAME" value="nkp-mgmt" placeholder="nkp-mgmt">
+</div>
+
+<div class="field">
+    <label>
+        Control plane 1
+        <span class="tooltip" title="IP or hostname of the first control plane node.">?</span>
+        <span class="required">*</span>
+    </label>
+    <input type="text" name="CONTROL_PLANE_1_ADDRESS" value="192.168.1.51" placeholder="192.168.1.51">
+</div>
+
+<div class="field">
+    <label>
+        Control plane 2
+        <span class="tooltip" title="IP or hostname of the second control plane node.">?</span>
+
+    </label>
+    <input type="text" name="CONTROL_PLANE_2_ADDRESS" value="192.168.1.52" placeholder="192.168.1.52">
+</div>
+
+<div class="field">
+    <label>
+        Control plane 3
+        <span class="tooltip" title="IP or hostname of the third control plane node.">?</span>
+
+    </label>
+    <input type="text" name="CONTROL_PLANE_3_ADDRESS" value="192.168.1.53" placeholder="192.168.1.53">
+</div>
+
+<div class="field">
+    <label>
+        Worker 1
+        <span class="tooltip" title="IP or hostname of the first worker node.">?</span>
+        <span class="required">*</span>
+    </label>
+    <input type="text" name="WORKER_1_ADDRESS" value="192.168.1.61" placeholder="192.168.1.61">
+</div>
+
+<div class="field">
+    <label>
+        Worker 2
+        <span class="tooltip" title="IP or hostname of the second worker node.">?</span>
+
+    </label>
+    <input type="text" name="WORKER_2_ADDRESS" value="192.168.1.62" placeholder="192.168.1.62">
+</div>
+
+<div class="field">
+    <label>
+        Worker 3
+        <span class="tooltip" title="IP or hostname of the third worker node.">?</span>
+
+    </label>
+    <input type="text" name="WORKER_3_ADDRESS" value="192.168.1.63" placeholder="192.168.1.63">
+</div>
+
+<div class="field">
+    <label>
+        Worker 4
+        <span class="tooltip" title="IP or hostname of the fourth worker node.">?</span>
+
+    </label>
+    <input type="text" name="WORKER_4_ADDRESS" value="192.168.1.64" placeholder="192.168.1.64">
+</div>
+
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-header">
+                    <div>
+                        <p class="eyebrow">Control plane endpoint</p>
+                        <p class="muted">Kubernetes API VIP and port exposed to clients.</p>
+                    </div>
+                    <span class="pill">vip</span>
+                </div>
+                <div class="field-grid">
+
+<div class="field">
+    <label>
+        API VIP
+        <span class="tooltip" title="Virtual IP or DNS name for the Kubernetes API endpoint.">?</span>
+        <span class="required">*</span>
+    </label>
+    <input type="text" name="CONTROL_PLANE_ENDPOINT_HOST" value="192.168.1.100" placeholder="192.168.1.100">
+</div>
+
+<div class="field">
+    <label>
+        API port
+        <span class="tooltip" title="Port that exposes the Kubernetes API.">?</span>
+
+    </label>
+    <input type="number" name="CONTROL_PLANE_ENDPOINT_PORT" value="6443" placeholder="6443">
+</div>
+
+<div class="field">
+    <label>
+        VIP interface
+        <span class="tooltip" title="Network interface used for the virtual IP (optional).">?</span>
+
+    </label>
+    <input type="text" name="VIRTUAL_IP_INTERFACE" value="" placeholder="eth0">
+</div>
+
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-header">
+                    <div>
+                        <p class="eyebrow">Access &amp; SSH</p>
+                        <p class="muted">Connectivity used by the bastion to manage the nodes.</p>
+                    </div>
+                    <span class="pill">access</span>
+                </div>
+                <div class="field-grid">
+
+<div class="field">
+    <label>
+        SSH user
+        <span class="tooltip" title="User the bastion uses to SSH to cluster nodes.">?</span>
+        <span class="required">*</span>
+    </label>
+    <input type="text" name="SSH_USER" value="konvoy" placeholder="konvoy">
+</div>
+
+<div class="field">
+    <label>
+        SSH private key path
+        <span class="tooltip" title="Path to the SSH private key on the bastion host.">?</span>
+        <span class="required">*</span>
+    </label>
+    <input type="text" name="SSH_PRIVATE_KEY_FILE" value="~/.ssh/id_rsa" placeholder="~/.ssh/id_rsa">
+</div>
+
+<div class="field">
+    <label>
+        SSH secret name
+        <span class="tooltip" title="Kubernetes secret name holding the SSH private key.">?</span>
+
+    </label>
+    <input type="text" name="SSH_PRIVATE_KEY_SECRET_NAME" value="nkp-mgmt-ssh-key" placeholder="nkp-mgmt-ssh-key">
+</div>
+
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-header">
+                    <div>
+                        <p class="eyebrow">Networking</p>
+                        <p class="muted">Pod, service, and load balancer ranges.</p>
+                    </div>
+                    <span class="pill">network</span>
+                </div>
+                <div class="field-grid">
+
+<div class="field">
+    <label>
+        MetalLB IP range
+        <span class="tooltip" title="Address range for service load balancer IPs.">?</span>
+
+    </label>
+    <input type="text" name="METALLB_IP_RANGE" value="192.168.1.240-192.168.1.250" placeholder="192.168.1.240-192.168.1.250">
+</div>
+
+<div class="field">
+    <label>
+        Pod CIDR
+        <span class="tooltip" title="CIDR block for pod networking.">?</span>
+
+    </label>
+    <input type="text" name="POD_CIDR" value="10.244.0.0/16" placeholder="10.244.0.0/16">
+</div>
+
+<div class="field">
+    <label>
+        Service CIDR
+        <span class="tooltip" title="CIDR block for service networking.">?</span>
+
+    </label>
+    <input type="text" name="SERVICE_CIDR" value="10.96.0.0/12" placeholder="10.96.0.0/12">
+</div>
+
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-header">
+                    <div>
+                        <p class="eyebrow">Proxy configuration</p>
+                        <p class="muted">Optional proxies for outbound traffic.</p>
+                    </div>
+                    <span class="pill">proxy</span>
+                </div>
+                <div class="field-grid">
+
+<div class="field">
+    <label>
+        HTTP proxy
+        <span class="tooltip" title="HTTP proxy URL if required for outbound access.">?</span>
+
+    </label>
+    <input type="text" name="HTTP_PROXY" value="" placeholder="">
+</div>
+
+<div class="field">
+    <label>
+        HTTPS proxy
+        <span class="tooltip" title="HTTPS proxy URL if required for outbound access.">?</span>
+
+    </label>
+    <input type="text" name="HTTPS_PROXY" value="" placeholder="">
+</div>
+
+<div class="field">
+    <label>
+        No proxy
+        <span class="tooltip" title="Comma-separated hosts that bypass the proxy.">?</span>
+
+    </label>
+    <input type="text" name="NO_PROXY" value="localhost,127.0.0.1" placeholder="localhost,127.0.0.1">
+</div>
+
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-header">
+                    <div>
+                        <p class="eyebrow">Storage</p>
+                        <p class="muted">Select a storage backend and provide provider-specific values.</p>
+                    </div>
+                    <span class="pill">storage</span>
+                </div>
+                <div class="field-grid">
+
+<div class="field">
+    <label>
+        Storage provider
+        <span class="tooltip" title="Select the CSI or local storage backend.">?</span>
+
+    </label>
+    <select name="STORAGE_PROVIDER"><option value="local-volume-provisioner" selected>Local volume</option><option value="nutanix-csi" >Nutanix CSI</option></select>
+</div>
+
+<div class="field">
+    <label>
+        Nutanix endpoint
+        <span class="tooltip" title="Prism endpoint for Nutanix clusters.">?</span>
+
+    </label>
+    <input type="text" name="NUTANIX_ENDPOINT" value="" placeholder="https://&lt;prism-endpoint&gt;">
+</div>
+
+<div class="field">
+    <label>
+        Nutanix user
+        <span class="tooltip" title="Username for Nutanix Prism access.">?</span>
+
+    </label>
+    <input type="text" name="NUTANIX_USER" value="" placeholder="">
+</div>
+
+<div class="field">
+    <label>
+        Nutanix password
+        <span class="tooltip" title="Password for Nutanix Prism access.">?</span>
+
+    </label>
+    <input type="password" name="NUTANIX_PASSWORD" value="" placeholder="">
+</div>
+
+<div class="field">
+    <label>
+        Nutanix cluster UUID
+        <span class="tooltip" title="UUID of the Nutanix cluster where volumes are provisioned.">?</span>
+
+    </label>
+    <input type="text" name="NUTANIX_CLUSTER_UUID" value="" placeholder="">
+</div>
+
+<div class="field">
+    <label>
+        Storage container
+        <span class="tooltip" title="Container name for Nutanix volumes.">?</span>
+
+    </label>
+    <input type="text" name="STORAGE_CONTAINER" value="" placeholder="">
+</div>
+
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-header">
+                    <div>
+                        <p class="eyebrow">Licensing</p>
+                        <p class="muted">Choose license tier and token (if applying now).</p>
+                    </div>
+                    <span class="pill">license</span>
+                </div>
+                <div class="field-grid">
+
+<div class="field">
+    <label>
+        License type
+        <span class="tooltip" title="Choose between community or pro licensing.">?</span>
+
+    </label>
+    <select name="LICENSE_TYPE"><option value="pro" selected>Pro</option><option value="community" >Community</option></select>
+</div>
+
+<div class="field">
+    <label>
+        NKP license token
+        <span class="tooltip" title="License token applied during installation (optional).">?</span>
+
+    </label>
+    <input type="password" name="NKP_LICENSE_TOKEN" value="" placeholder="">
+</div>
+
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-header">
+                    <div>
+                        <p class="eyebrow">Registry</p>
+                        <p class="muted">Mirror or upstream registry credentials.</p>
+                    </div>
+                    <span class="pill">registry</span>
+                </div>
+                <div class="field-grid">
+
+<div class="field">
+    <label>
+        Registry mirror URL
+        <span class="tooltip" title="Mirror or upstream registry endpoint.">?</span>
+
+    </label>
+    <input type="text" name="REGISTRY_MIRROR_URL" value="https://registry-1.docker.io" placeholder="https://registry-1.docker.io">
+</div>
+
+<div class="field">
+    <label>
+        Registry username
+        <span class="tooltip" title="Username for the registry mirror (if required).">?</span>
+
+    </label>
+    <input type="text" name="REGISTRY_MIRROR_USERNAME" value="" placeholder="">
+</div>
+
+<div class="field">
+    <label>
+        Registry password
+        <span class="tooltip" title="Password for the registry mirror (if required).">?</span>
+
+    </label>
+    <input type="password" name="REGISTRY_MIRROR_PASSWORD" value="" placeholder="">
+</div>
+
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-header">
+                    <div>
+                        <p class="eyebrow">Air-gapped options</p>
+                        <p class="muted">Bundle and private registry settings.</p>
+                    </div>
+                    <span class="pill">airgap</span>
+                </div>
+                <div class="field-grid">
+
+<div class="field">
+    <label>
+        Air-gapped
+        <span class="tooltip" title="Toggle to use a private registry and bundles.">?</span>
+
+    </label>
+    <select name="AIRGAPPED"><option value="false" selected>False</option><option value="true" >True</option></select>
+</div>
+
+<div class="field">
+    <label>
+        Local registry URL
+        <span class="tooltip" title="Private registry endpoint for air-gapped installs.">?</span>
+
+    </label>
+    <input type="text" name="LOCAL_REGISTRY_URL" value="" placeholder="">
+</div>
+
+<div class="field">
+    <label>
+        Local registry CA certificate
+        <span class="tooltip" title="PEM-encoded CA certificate for the private registry.">?</span>
+
+    </label>
+    <input type="text" name="LOCAL_REGISTRY_CA_CERT" value="" placeholder="">
+</div>
+
+<div class="field">
+    <label>
+        Local registry username
+        <span class="tooltip" title="Username for the private registry.">?</span>
+
+    </label>
+    <input type="text" name="LOCAL_REGISTRY_USERNAME" value="" placeholder="">
+</div>
+
+<div class="field">
+    <label>
+        Local registry password
+        <span class="tooltip" title="Password for the private registry.">?</span>
+
+    </label>
+    <input type="password" name="LOCAL_REGISTRY_PASSWORD" value="" placeholder="">
+</div>
+
+<div class="field">
+    <label>
+        NKP bundle path
+        <span class="tooltip" title="File path to the NKP bundle tarball.">?</span>
+
+    </label>
+    <input type="text" name="NKP_BUNDLE_PATH" value="" placeholder="">
+</div>
+
+<div class="field">
+    <label>
+        Konvoy image bundle
+        <span class="tooltip" title="Path to the Konvoy image bundle tarball.">?</span>
+
+    </label>
+    <input type="text" name="KONVOY_IMAGE_BUNDLE" value="" placeholder="">
+</div>
+
+<div class="field">
+    <label>
+        Kommander image bundle
+        <span class="tooltip" title="Path to the Kommander image bundle tarball.">?</span>
+
+    </label>
+    <input type="text" name="KOMMANDER_IMAGE_BUNDLE" value="" placeholder="">
+</div>
+
+<div class="field">
+    <label>
+        Kommander charts bundle
+        <span class="tooltip" title="Path to the Kommander charts bundle tarball.">?</span>
+
+    </label>
+    <input type="text" name="KOMMANDER_CHARTS_BUNDLE" value="" placeholder="">
+</div>
+
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-header">
+                    <div>
+                        <p class="eyebrow">Output paths</p>
+                        <p class="muted">Where artifacts and kubeconfigs are written.</p>
+                    </div>
+                    <span class="pill">output</span>
+                </div>
+                <div class="field-grid">
+
+<div class="field">
+    <label>
+        Output directory
+        <span class="tooltip" title="Directory where artifacts are written.">?</span>
+        <span class="required">*</span>
+    </label>
+    <input type="text" name="OUTPUT_DIR" value="${PWD}/nkp-output" placeholder="">
+</div>
+
+<div class="field">
+    <label>
+        Kubeconfig path
+        <span class="tooltip" title="Path to the generated kubeconfig.">?</span>
+
+    </label>
+    <input type="text" name="KUBECONFIG_PATH" value="${OUTPUT_DIR}/nkp-mgmt.conf" placeholder="">
+</div>
+
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-header">
+                    <div>
+                        <p class="eyebrow">Timeouts &amp; flags</p>
+                        <p class="muted">Operational timeouts and feature toggles.</p>
+                    </div>
+                    <span class="pill">timeouts</span>
+                </div>
+                <div class="field-grid">
+
+<div class="field">
+    <label>
+        Cluster create timeout
+        <span class="tooltip" title="Timeout when creating the management cluster.">?</span>
+
+    </label>
+    <input type="text" name="CLUSTER_CREATE_TIMEOUT" value="60m" placeholder="60m">
+</div>
+
+<div class="field">
+    <label>
+        Kommander install timeout
+        <span class="tooltip" title="Timeout when installing Kommander.">?</span>
+
+    </label>
+    <input type="text" name="KOMMANDER_INSTALL_TIMEOUT" value="45m" placeholder="45m">
+</div>
+
+<div class="field">
+    <label>
+        Node ready timeout
+        <span class="tooltip" title="Timeout for nodes to report ready.">?</span>
+
+    </label>
+    <input type="text" name="NODE_READY_TIMEOUT" value="30m" placeholder="30m">
+</div>
+
+<div class="field">
+    <label>
+        Verbose logging
+        <span class="tooltip" title="Enable verbose logging for scripts.">?</span>
+
+    </label>
+    <select name="VERBOSE"><option value="false" selected>False</option><option value="true" >True</option></select>
+</div>
+
+<div class="field">
+    <label>
+        Dry run
+        <span class="tooltip" title="Validate only without applying changes.">?</span>
+
+    </label>
+    <select name="DRY_RUN"><option value="false" selected>False</option><option value="true" >True</option></select>
+</div>
+
+<div class="field">
+    <label>
+        FIPS mode
+        <span class="tooltip" title="Enable FIPS mode when required by policy.">?</span>
+
+    </label>
+    <select name="FIPS_MODE"><option value="false" selected>False</option><option value="true" >True</option></select>
+</div>
+
+                </div>
+            </div>
+</div>
+            </form>
+        </section>
+
+        <section class="card dashboard">
+            <div class="card-header space-between">
+                <div>
+                    <p class="eyebrow">Progress</p>
+                    <h2>Deployment status</h2>
+                </div>
+                <div class="timing-shell">
+                    <div class="progress-shell">
+                        <div id="progress-bar" class="progress-bar" style="width: 0%"></div>
+                    </div>
+                    <div class="timer-block">
+                        <div class="timer-label">Total time</div>
+                        <div class="timer-value" id="total-timer">--:--</div>
+                    </div>
+                </div>
+            </div>
+            <div class="phase-controls" id="phase-toggle"></div>
+            <div class="phase-list" id="phase-list"></div>
+            <div class="terminal">
+                <div class="terminal-header">
+                    <span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span>
+                    <span class="terminal-title">Console output</span>
+                    <div class="terminal-actions">
+                        <button class="pill" id="clear-terminal" type="button">Clear</button>
+                    </div>
+                </div>
+                <pre id="terminal-output"></pre>
+            </div>
+        </section>
+    </main>
+</div>
+
+<script>
+    const phaseSets = {"automated": ["Validate & prepare", "Deploy NKP", "Verify deployment"], "phased": ["Validate prerequisites", "Prepare nodes", "Deploy NKP", "Verify deployment"]};
+    const terminalOutput = document.getElementById('terminal-output');
+    const progressBar = document.getElementById('progress-bar');
+    const phaseList = document.getElementById('phase-list');
+    const modeInputs = document.querySelectorAll('input[name="mode"]');
+    const totalTimerEl = document.getElementById('total-timer');
+
+    let phaseTimers = {};
+    let totalTimerStart = Date.now();
+    let totalTimerStop = null;
+    let timerInterval = null;
+
+    function formatDuration(ms) {
+        if (!ms || ms < 0) return '--:--';
+        const totalSeconds = Math.floor(ms / 1000);
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        if (hours > 0) {
+            return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+        return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    function ensureTimerInterval() {
+        if (!timerInterval) {
+            timerInterval = setInterval(updateTimers, 1000);
+        }
+    }
+
+    function updateTimers() {
+        if (totalTimerEl) {
+            const totalEnd = totalTimerStop || Date.now();
+            totalTimerEl.textContent = formatDuration(totalEnd - totalTimerStart);
+        }
+
+        document.querySelectorAll('.phase-card').forEach(card => {
+            const label = card.dataset.label;
+            const timerEl = card.querySelector('.phase-timer');
+            const timerData = phaseTimers[label];
+            if (!timerEl) return;
+            if (timerData && timerData.start) {
+                const endTime = timerData.end || Date.now();
+                timerEl.textContent = formatDuration(endTime - timerData.start);
+            } else {
+                timerEl.textContent = '--:--';
+            }
+        });
+    }
+
+    function startPhaseTimer(label) {
+        phaseTimers[label] = {start: Date.now(), end: null};
+        ensureTimerInterval();
+        updateTimers();
+    }
+
+    function stopPhaseTimer(label) {
+        if (phaseTimers[label] && !phaseTimers[label].end) {
+            phaseTimers[label].end = Date.now();
+            updateTimers();
+        }
+    }
+
+    function renderPhases(mode) {
+        phaseList.innerHTML = '';
+        const phases = phaseSets[mode] || [];
+        phases.forEach(phase => {
+            const card = document.createElement('div');
+            card.className = 'phase-card pending';
+            card.dataset.label = phase;
+            card.innerHTML = `<div class="phase-title">${phase}</div><div class="phase-meta"><div class="phase-status">Pending</div><div class="phase-timer">--:--</div></div>`;
+            if (mode === 'phased') {
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = true;
+                checkbox.dataset.phase = phase;
+                checkbox.className = 'phase-checkbox';
+                card.prepend(checkbox);
+            }
+            phaseList.appendChild(card);
+        });
+    }
+
+    function updatePhaseStatus(label, status) {
+        const card = Array.from(document.querySelectorAll('.phase-card')).find(c => c.dataset.label === label);
+        if (!card) return;
+        const statusEl = card.querySelector('.phase-status');
+        statusEl.textContent = status;
+        card.classList.remove('pending', 'done', 'active');
+        if (status === 'Running') {
+            card.classList.add('active');
+            startPhaseTimer(label);
+        } else if (status === 'Done') {
+            card.classList.add('done');
+            stopPhaseTimer(label);
+        } else {
+            card.classList.add('pending');
+        }
+    }
+
+    function appendTerminalLine(text) {
+        terminalOutput.textContent += `
+${text}`;
+        terminalOutput.scrollTop = terminalOutput.scrollHeight;
+    }
+
+    function simulate() {
+        renderPhases('automated');
+        setTimeout(() => updatePhaseStatus('Validate & prepare', 'Done'), 200);
+        setTimeout(() => updatePhaseStatus('Deploy NKP', 'Running'), 400);
+        setTimeout(() => {
+            updatePhaseStatus('Deploy NKP', 'Done');
+            updatePhaseStatus('Verify deployment', 'Running');
+            progressBar.style.width = '72%';
+        }, 800);
+        setTimeout(() => {
+            updatePhaseStatus('Verify deployment', 'Done');
+            progressBar.style.width = '100%';
+            progressBar.dataset.status = 'complete';
+            document.getElementById('status-text').textContent = 'Complete (preview)';
+            totalTimerStop = Date.now();
+            updateTimers();
+        }, 1600);
+        ensureTimerInterval();
+    }
+
+    document.getElementById('clear-terminal').addEventListener('click', () => terminalOutput.textContent = '');
+    modeInputs.forEach(input => input.addEventListener('change', (e) => renderPhases(e.target.value)));
+
+    // Seed the terminal with example output.
+    appendTerminalLine("[info] Bastion online \u2014 preview mode (no backend)");appendTerminalLine("[info] Loaded defaults from environment.env template");appendTerminalLine("[info] Validating configuration\u2026");appendTerminalLine("[ok] SSH connectivity checks would run here");appendTerminalLine("[ok] Rendering deployment manifest previews");appendTerminalLine("[info] Ready to launch automated workflow");
+    simulate();
+    updateTimers();
+</script>
+</body>
+</html>
