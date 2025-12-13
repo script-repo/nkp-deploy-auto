@@ -2,7 +2,11 @@
 
 This package provides everything needed to deploy Nutanix Kubernetes Platform (NKP) 2.16 from the bastion host via the bundled Flask UI or by invoking the included scripts directly.
 
-## 📁 Package Contents
+## What it does
+- Collects the minimal Prism Central details (IP, username, password) and verifies connectivity.
+- Auto-discovers clusters, subnets, projects, and storage containers from Prism Central and populates dropdowns.
+- Lets you save, download, and upload configuration files that drive the installation.
+- Executes a strictly sequential install script that mirrors the nkp-quickstart process and streams progress to the UI.
 
 ```
 nkp-claude-code-deployment/
@@ -38,16 +42,13 @@ When the script completes, open `http://<bastion-ip>:8080` and perform the remai
 
 1. Copy `environment.env.template` to `environment.env`:
    ```bash
-   cp environment.env.template environment.env
+   cd ui
+   python -m venv .venv
+   source .venv/bin/activate
+   pip install -r requirements.txt
    ```
 
-2. Edit `environment.env` with your infrastructure details:
-   - Node IP addresses
-   - SSH credentials
-   - Network configuration
-   - License token
-
-3. Ensure your SSH key is accessible and has correct permissions:
+2. Launch the UI from the repo root:
    ```bash
    chmod 600 ~/.ssh/id_rsa
    ```
@@ -220,7 +221,10 @@ After successful deployment, find these in `./nkp-output/`:
    - Configure network policies after deployment
    - Enable audit logging
 
-## 📄 License
+## Scripted install
+The installer keeps everything linear and human-readable:
+1. Validate that common tools (`curl`, `kubectl`, `helm`, `ssh`) exist.
+2. Prepare an output directory for artifacts and kubeconfig.
+3. Follow the nkp-quickstart steps in order (fetch assets, ensure project/subnet/container, render manifests, create management cluster, configure networking and storage, write kubeconfig).
 
-This deployment package is provided as-is for use with Nutanix Kubernetes Platform.
-NKP requires a valid license from Nutanix.
+Set `DRY_RUN=true` in `environment.env` to print the commands without executing them.
