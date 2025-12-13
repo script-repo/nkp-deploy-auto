@@ -25,6 +25,17 @@ else
     exit 1
 fi
 
+expand_path() {
+    local path="$1"
+    [[ -z "${path}" ]] && return
+    if [[ "${path}" == "~"* ]]; then
+        path="${path/#\~/${HOME}}"
+    fi
+    realpath -m "${path}"
+}
+
+SSH_PRIVATE_KEY_FILE="$(expand_path "${SSH_PRIVATE_KEY_FILE}")"
+
 echo -e "${CYAN}=====================================================${NC}"
 echo -e "${CYAN} NKP Parallel Pre-flight Validation${NC}"
 echo -e "${CYAN} Cluster: ${CLUSTER_NAME}${NC}"

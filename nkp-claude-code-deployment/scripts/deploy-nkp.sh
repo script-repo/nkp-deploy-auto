@@ -80,6 +80,17 @@ else
     exit 1
 fi
 
+expand_path() {
+    local path="$1"
+    [[ -z "${path}" ]] && return
+    if [[ "${path}" == "~"* ]]; then
+        path="${path/#\~/${HOME}}"
+    fi
+    realpath -m "${path}"
+}
+
+SSH_PRIVATE_KEY_FILE="$(expand_path "${SSH_PRIVATE_KEY_FILE}")"
+
 # Create output directory
 mkdir -p "${OUTPUT_DIR}"
 log_info "Output directory: ${OUTPUT_DIR}"

@@ -9,6 +9,17 @@ NODE_IP="${1:?Node IP required}"
 SSH_USER="${2:-konvoy}"
 SSH_KEY="${3:-$HOME/.ssh/id_rsa}"
 
+expand_path() {
+    local path="$1"
+    [[ -z "${path}" ]] && return
+    if [[ "${path}" == "~"* ]]; then
+        path="${path/#\~/${HOME}}"
+    fi
+    realpath -m "${path}"
+}
+
+SSH_KEY="$(expand_path "${SSH_KEY}")"
+
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'

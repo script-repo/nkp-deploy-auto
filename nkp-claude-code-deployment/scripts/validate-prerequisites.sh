@@ -69,6 +69,17 @@ elif [ -f "./environment.env.template" ]; then
     exit 1
 fi
 
+expand_path() {
+    local path="$1"
+    [[ -z "${path}" ]] && return
+    if [[ "${path}" == "~"* ]]; then
+        path="${path/#\~/${HOME}}"
+    fi
+    realpath -m "${path}"
+}
+
+SSH_PRIVATE_KEY_FILE="$(expand_path "${SSH_PRIVATE_KEY_FILE}")"
+
 # Validate required variables
 REQUIRED_VARS=(
     "CLUSTER_NAME"
