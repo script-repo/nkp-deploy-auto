@@ -217,49 +217,123 @@
         window.location.href = '/api/download-config';
       });
 
-      document.getElementById('uploadInput').addEventListener('change', async (event) => {
-        const file = event.target.files[0];
-        const formData = new FormData();
-        formData.append('file', file);
-        const res = await fetch('/api/upload-config', { method: 'POST', body: formData });
-        const data = await res.json();
-        if (data.success) seedForm(data.config);
-      });
+            function applyProgress(progress) {
+                if (!progress || typeof progress.percent === 'undefined') return;
 
-      function collectPayload() {
-        return {
-          PRISM_CENTRAL_IP: fields.pc_ip.value,
-          PRISM_CENTRAL_USERNAME: fields.pc_user.value,
-          PRISM_CENTRAL_PASSWORD: fields.pc_password.value,
-          PRISM_CENTRAL_VERIFY_SSL: fields.verify_ssl.checked,
-          TARGET_CLUSTER: fields.cluster.value,
-          TARGET_SUBNET: fields.subnet.value,
-          TARGET_PROJECT: fields.project.value,
-          STORAGE_CONTAINER: fields.container.value,
-          NODE_CIDR: fields.nodeCidr.value,
-          SERVICE_CIDR: fields.serviceCidr.value,
-          METALLB_IP_RANGE: fields.metallb.value,
-          SSH_USERNAME: fields.sshUser.value,
-          SSH_PRIVATE_KEY_PATH: fields.sshKey.value,
+                progressBar.style.width = `${progress.percent}%`;
+                progressBar.dataset.status = progress.status || 'running';
+
+                if (progress.step) {
+                    statusText.textContent = progress.step;
+                }
+
+                if (progress.status === 'complete' || progress.status === 'error') {
+                    document.querySelectorAll('.phase-card.active').forEach(card => stopPhaseTimer(card.dataset.label));
+                    stopTotalTimer();
+                } else if (progress.status === 'running' && !totalTimerStart) {
+                    startTotalTimer();
+                }
+
+                if (progress.status === 'complete') {
+                    document.querySelectorAll('.phase-card').forEach(card => card.classList.add('done'));
+                    document.getElementById('launch').disabled = false;
+                    statusText.textContent = progress.step || 'Complete';
+                    updateTimers();
+                }
+
+                if (progress.status === 'error') {
+                    document.getElementById('launch').disabled = false;
+                    statusText.textContent = progress.step || 'Failed';
+                    updateTimers();
+                }
+            }
+
+            function launchDeployment() {
+                const mode = document.querySelector('input[name="mode"]:checked').value;
+                const phases = getSelectedPhases(mode);
+                progressBar.style.width = '0%';
+                progressBar.dataset.status = 'running';
+                document.getElementById('launch').disabled = true;
+                resetPhases(mode);
+                resetTimers();
+                statusText.textContent = 'Starting...';
+                fetch('/api/start', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({mode, phases})
+                }).then(async r => {
+                    const data = await r.json();
+                    if (!r.ok) {
+                        appendTerminalLine(data.message || 'Unable to start deployment');
+                        document.getElementById('launch').disabled = false;
+                        statusText.textContent = 'Idle';
+                        return;
+                    }
+                    appendTerminalLine(data.message || 'Deployment started');
+                    statusText.textContent = `Running (${mode})`;
+                    startTotalTimer();
+                }).catch(err => {
+                    appendTerminalLine(err.toString());
+                    statusText.textContent = 'Idle';
+                    resetTimers();
+                });
+            }
+
+            function connectStream() {
+                setConnectionState('open');
+                const source = new EventSource('/api/stream');
+        source.onopen = () => setConnectionState('open');
+        source.onerror = () => setConnectionState('closed');
+                source.onmessage = (event) => {
+                    if (!event.data || event.data === '{}') return;
+                    const payload = JSON.parse(event.data);
+            if (payload.type === 'log') {
+                appendTerminalLine(payload.message);
+            }
+            if (payload.type === 'status') {
+                appendTerminalLine(payload.message);
+                statusText.textContent = payload.message;
+            }
+            if (payload.type === 'phase') {
+                updatePhaseStatus(payload.message, 'Running');
+            }
+                    if (payload.type === 'progress') {
+                        try {
+                            const progress = JSON.parse(payload.message);
+                            applyProgress(progress);
+                        } catch (e) {
+                            console.warn('Progress parse error', e);
+                        }
+            }
         };
       }
 
-      const eventSource = new EventSource('/api/stream');
-      const logBox = document.getElementById('logBox');
-      eventSource.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        logBox.textContent += data.message;
-        logBox.scrollTop = logBox.scrollHeight;
-      };
+            function hydrateStatus() {
+                fetch('/api/status').then(async (r) => {
+                    const data = await r.json();
+                    const progress = data.state || {};
+                    applyProgress({
+                        percent: progress.progress ?? progress.percent ?? 0,
+                        status: progress.status,
+                        step: progress.step
+                    });
+                    if (!data.active) {
+                        stopTotalTimer();
+                    }
+                }).catch(() => {
+                    // no-op hydration failure
+                });
+            }
 
-      async function refreshStatus() {
-        const res = await fetch('/api/status');
-        const data = await res.json();
-        document.getElementById('progressBar').style.width = `${data.progress || 0}%`;
-        document.getElementById('progressText').textContent = `${data.step || 'idle'}`;
-        requestAnimationFrame(refreshStatus);
-      }
-      refreshStatus();
-    </script>
-  </body>
+    document.getElementById('save-config').addEventListener('click', saveConfiguration);
+            document.getElementById('launch').addEventListener('click', launchDeployment);
+            document.getElementById('clear-terminal').addEventListener('click', () => terminalOutput.textContent = '');
+            modeInputs.forEach(input => input.addEventListener('change', (e) => renderPhases(e.target.value)));
+
+            renderPhases('automated');
+            connectStream();
+            hydrateStatus();
+            updateTimers();
+        </script>
+</body>
 </html>
