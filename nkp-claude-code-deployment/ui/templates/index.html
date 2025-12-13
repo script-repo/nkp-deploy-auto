@@ -55,6 +55,20 @@
             <p id="verifyStatus" class="text-sm text-slate-600"></p>
           </div>
         </section>
+    </main>
+</div>
+
+<script>
+    const phaseSets = {{ phase_sets | tojson }};
+            const terminalOutput = document.getElementById('terminal-output');
+            const progressBar = document.getElementById('progress-bar');
+            const phaseList = document.getElementById('phase-list');
+            const modeInputs = document.querySelectorAll('input[name="mode"]');
+            const saveStatus = document.getElementById('save-status');
+            const statusText = document.getElementById('status-text');
+            const connectionDot = document.getElementById('connection-dot');
+            const totalTimerEl = document.getElementById('total-timer');
+            let cachedPrismPassword = '';
 
         <section class="card">
           <h2 class="text-xl font-semibold mb-4">Progress</h2>
@@ -241,16 +255,65 @@
                     updateTimers();
                 }
 
-                if (progress.status === 'error') {
-                    document.getElementById('launch').disabled = false;
-                    statusText.textContent = progress.step || 'Failed';
-                    updateTimers();
-                }
+    function getRuntimePrismPassword() {
+        const field = document.querySelector('input[name="PRISM_CENTRAL_PASSWORD"]');
+        let value = field ? field.value : '';
+        if (!value) {
+            value = cachedPrismPassword;
+        }
+        if (!value) {
+            value = window.prompt('Enter the Prism Central password (will not be saved to disk)');
+            if (value === null) {
+                return null;
             }
+        }
+        cachedPrismPassword = value;
+        return value;
+    }
+
+    function saveConfiguration() {
+        const formData = new FormData(document.getElementById('config-form'));
+        const payload = Object.fromEntries(formData.entries());
+        cachedPrismPassword = payload.PRISM_CENTRAL_PASSWORD || cachedPrismPassword;
+        delete payload.PRISM_CENTRAL_PASSWORD;
+        saveStatus.textContent = 'Saving...';
+        fetch('/api/config', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        }).then(async (r) => {
+            const data = await r.json();
+            if (!r.ok) {
+                saveStatus.textContent = data.message || 'Validation failed';
+                highlightMissing(data.missing || []);
+                appendTerminalLine(data.message || 'Validation failed');
+                return;
+            }
+            const suffix = cachedPrismPassword ? ' (Prism Central password kept in memory only)' : '';
+            saveStatus.textContent = (data.message || 'Configuration saved') + suffix;
+            highlightMissing([]);
+            appendTerminalLine(data.message || 'Configuration saved');
+        }).catch(err => {
+            saveStatus.textContent = 'Save failed';
+            appendTerminalLine(err.toString());
+        });
+    }
+
+    function getSelectedPhases(mode) {
+        if (mode !== 'phased') return phaseSets[mode];
+        const boxes = document.querySelectorAll('.phase-checkbox');
+        return Array.from(boxes).filter(b => b.checked).map(b => b.dataset.phase);
+    }
 
             function launchDeployment() {
                 const mode = document.querySelector('input[name="mode"]:checked').value;
                 const phases = getSelectedPhases(mode);
+                const prismPassword = getRuntimePrismPassword();
+                if (prismPassword === null || prismPassword === '') {
+                    appendTerminalLine('Launch cancelled: Prism Central password is required at runtime.');
+                    statusText.textContent = 'Idle';
+                    return;
+                }
                 progressBar.style.width = '0%';
                 progressBar.dataset.status = 'running';
                 document.getElementById('launch').disabled = true;
@@ -260,7 +323,7 @@
                 fetch('/api/start', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({mode, phases})
+                    body: JSON.stringify({mode, phases, prismCentralPassword: prismPassword})
                 }).then(async r => {
                     const data = await r.json();
                     if (!r.ok) {

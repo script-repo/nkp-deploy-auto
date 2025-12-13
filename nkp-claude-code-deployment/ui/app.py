@@ -14,8 +14,8 @@ from scripts.prism_client import gather_inventory
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 ENV_FILE = BASE_DIR / "environment.env"
-CONFIG_FILE = BASE_DIR / "configs" / "deployment.json"
-DEPLOY_SCRIPT = BASE_DIR / "scripts" / "run-deployment.sh"
+DEPLOYMENT_FILE = BASE_DIR / "deployment.json"
+SCRIPTS_DIR = BASE_DIR / "scripts"
 
 app = Flask(__name__)
 
@@ -24,7 +24,7 @@ deployment_thread: threading.Thread | None = None
 deployment_lock = threading.Lock()
 deployment_active = False
 current_mode = "automated"
-state: Dict[str, str | float] = {"progress": 0.0, "status": "idle", "step": "Idle"}
+SENSITIVE_FIELDS = {"PRISM_CENTRAL_PASSWORD"}
 
 DEFAULT_CONFIG: Dict[str, str] = {
     "CLUSTER_NAME": "nkp-mgmt",
@@ -53,6 +53,7 @@ DEFAULT_CONFIG: Dict[str, str] = {
     "NUTANIX_PASSWORD": "",
     "NUTANIX_CLUSTER_UUID": "",
     "STORAGE_CONTAINER": "",
+    "PRISM_CENTRAL_PASSWORD": "",
     "LICENSE_TYPE": "pro",
     "NKP_LICENSE_TOKEN": "",
     "REGISTRY_MIRROR_URL": "https://registry-1.docker.io",
@@ -214,6 +215,11 @@ FIELD_METADATA: Dict[str, Dict[str, str | list]] = {
     "STORAGE_CONTAINER": {
         "label": "Storage container",
         "tooltip": "Name of the storage container or volume group.",
+    },
+    "PRISM_CENTRAL_PASSWORD": {
+        "label": "Prism Central password",
+        "tooltip": "Password is required at runtime and is never written to disk by the UI.",
+        "input_type": "password",
     },
     "LICENSE_TYPE": {
         "label": "License type",
@@ -387,6 +393,7 @@ FIELD_SECTIONS: List[Dict[str, str | List[str]]] = [
             "NUTANIX_ENDPOINT",
             "NUTANIX_USER",
             "NUTANIX_PASSWORD",
+            "PRISM_CENTRAL_PASSWORD",
             "NUTANIX_CLUSTER_UUID",
             "STORAGE_CONTAINER",
         ],
@@ -519,7 +526,8 @@ def load_config() -> Dict[str, Any]:
     return config
 
 
-def format_env_lines(config: Dict[str, str]) -> List[str]:
+def format_env_lines(config: Dict[str, str], skip_keys: set[str] | None = None) -> List[str]:
+    skip_keys = skip_keys or set()
     section_headers = [
         ("CLUSTER CONFIGURATION", ["CLUSTER_NAME"]),
         (
@@ -548,6 +556,7 @@ def format_env_lines(config: Dict[str, str]) -> List[str]:
                 "NUTANIX_ENDPOINT",
                 "NUTANIX_USER",
                 "NUTANIX_PASSWORD",
+                "PRISM_CENTRAL_PASSWORD",
                 "NUTANIX_CLUSTER_UUID",
                 "STORAGE_CONTAINER",
             ],
@@ -584,6 +593,8 @@ def format_env_lines(config: Dict[str, str]) -> List[str]:
         lines.append(f"# {title}")
         lines.append("# =============================================================================")
         for key in keys:
+            if key in skip_keys:
+                continue
             value = config.get(key, "")
             lines.append(f"export {key}={shlex.quote(str(value))}")
         lines.append("")
@@ -599,6 +610,18 @@ def format_env_lines(config: Dict[str, str]) -> List[str]:
 def validate_config(config: Dict[str, str]) -> List[str]:
     missing = [field for field in REQUIRED_FIELDS if not str(config.get(field, "")).strip()]
     return missing
+
+
+def persist_config(config: Dict[str, str]) -> Dict[str, str]:
+    redacted_config = config.copy()
+    for key in SENSITIVE_FIELDS:
+        if key in redacted_config:
+            redacted_config[key] = "<redacted>" if config.get(key) else ""
+
+    lines = format_env_lines(config, skip_keys=SENSITIVE_FIELDS)
+    ENV_FILE.write_text("\n".join(lines))
+    DEPLOYMENT_FILE.write_text(json.dumps(redacted_config, indent=2))
+    return redacted_config
 
 
 def enqueue_event(event_type: str, message: str) -> None:
@@ -648,7 +671,7 @@ def detect_phase(line: str, mode: str) -> str | None:
     return None
 
 
-def run_deployment(mode: str, phases: List[str]) -> None:
+def run_deployment(mode: str, phases: List[str], extra_env: Dict[str, str] | None = None) -> None:
     global deployment_active
     with deployment_lock:
         deployment_active = True
@@ -674,6 +697,7 @@ def run_deployment(mode: str, phases: List[str]) -> None:
             stderr=subprocess.STDOUT,
             text=True,
             bufsize=1,
+            env={**os.environ, **(extra_env or {})},
         )
 
         if process.stdout:
@@ -786,9 +810,12 @@ def save_config() -> Response:
             ),
             400,
         )
-    lines = format_env_lines(merged_config)
-    ENV_FILE.write_text("\n".join(lines))
-    return jsonify({"message": f"Saved configuration to {ENV_FILE}"})
+    persist_config(merged_config)
+    return jsonify(
+        {
+            "message": f"Saved configuration to {ENV_FILE} (sensitive fields redacted)",
+        }
+    )
 
 
 @app.route("/api/start", methods=["POST"])
@@ -801,11 +828,29 @@ def start_deployment() -> Response:
     data = request.get_json(force=True)
     mode = data.get("mode", "automated")
     phases = data.get("phases", PHASE_SETS.get(mode, []))
+    prism_password = data.get("prismCentralPassword") or data.get("PRISM_CENTRAL_PASSWORD") or ""
+
+    runtime_env: Dict[str, str] = {}
+    if prism_password:
+        runtime_env["PRISM_CENTRAL_PASSWORD"] = str(prism_password)
+    elif os.environ.get("PRISM_CENTRAL_PASSWORD"):
+        runtime_env["PRISM_CENTRAL_PASSWORD"] = os.environ["PRISM_CENTRAL_PASSWORD"]
+    else:
+        return (
+            jsonify(
+                {
+                    "message": "PRISM_CENTRAL_PASSWORD is required at runtime. Please provide it when prompted.",
+                }
+            ),
+            400,
+        )
 
     current_mode = mode
     update_state(progress=0.0, status="running", step="Queued deployment")
 
-    deployment_thread = threading.Thread(target=run_deployment, args=(mode, phases), daemon=True)
+    deployment_thread = threading.Thread(
+        target=run_deployment, args=(mode, phases, runtime_env), daemon=True
+    )
     deployment_thread.start()
     return jsonify({"message": f"Started {mode} deployment", "mode": mode, "phases": phases})
 

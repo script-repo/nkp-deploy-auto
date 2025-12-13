@@ -122,8 +122,23 @@ Execute individual phases when you need granular control:
 | `SSH_PRIVATE_KEY_FILE` | Path to SSH private key | Yes |
 | `METALLB_IP_RANGE` | IP range for LoadBalancer | Yes |
 | `NKP_LICENSE_TOKEN` | License token | No* |
+| `PRISM_CENTRAL_PASSWORD` | Runtime credential for Prism Central (redacted from saved files) | Prompted at runtime |
 
 *License can be applied via UI if not provided
+
+Sensitive credentials are intentionally kept out of `environment.env` and `deployment.json`. The UI redacts `PRISM_CENTRAL_PASSWORD` during saves and prompts for it when you launch a deployment so the password only lives in memory and the child process environment.
+
+### nkp-deployment-spec.yaml
+
+The deployment spec provides a structured YAML configuration covering:
+- Cluster settings
+- Node inventory
+- Networking (MetalLB, CNI)
+- Storage configuration
+- Kommander settings
+- Security options
+
+Edit this file for complex deployments or to enable optional features.
 
 ## ✅ Prerequisites Checklist
 
