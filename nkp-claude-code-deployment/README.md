@@ -1,25 +1,24 @@
-# NKP Deployment Package for Automation Agents
+# NKP Deployment Package for Bastion UI + Scripts
 
-This package provides everything needed to deploy Nutanix Kubernetes Platform (NKP) 2.16 using any capable coding agent (Claude Code, GitHub Copilot Workspace, Cursor, etc.) or by running the included scripts directly.
+This package provides everything needed to deploy Nutanix Kubernetes Platform (NKP) 2.16 from the bastion host via the bundled Flask UI or by invoking the included scripts directly.
 
 ## 📁 Package Contents
 
 ```
 nkp-claude-code-deployment/
-├── CLAUDE_CODE_PROMPTS.md      # Prompts for any AI agent
-├── AGENT_AUTOMATION_GUIDE.md   # How to run with GPT-5, Claude Code, OpenAI-compatible models
-├── nkp-deployment-spec.yaml    # Main deployment specification
 ├── environment.env.template    # Environment variables template
 ├── README.md                   # This file
 ├── configs/
 │   └── metallb-config.yaml.template
 ├── scripts/
-│   ├── deploy-nkp.sh           # Main deployment script
+│   ├── deploy-nkp.sh                 # Main deployment script
 │   ├── parallel-deploy-and-verify.sh # Parallelized runner with verification
 │   ├── validate-prerequisites.sh
 │   └── verify-deployment.sh
-└── templates/
-    └── preprovisioned_inventory.yaml.template
+├── templates/
+│   └── preprovisioned_inventory.yaml.template
+├── ui/                          # Flask UI for configuration + deployment
+└── archive/                     # Legacy prompts and agent-only runbooks
 ```
 
 ## 🚀 Quick Start
@@ -55,14 +54,9 @@ When the script completes, open `http://<bastion-ip>:8080` and perform the remai
 
 ### Step 2: Choose Your Automation Path
 
-- **Use an AI agent**: launch your preferred agent in this directory (e.g., `OpenAI GPT-5` in ChatGPT or an IDE plugin, `Claude Code`, `GitHub Copilot Workspace`, Cursor, or any OpenAI-compatible model) and add context files:
-  ```bash
-  cd nkp-claude-code-deployment
-  /add environment.env nkp-deployment-spec.yaml CLAUDE_CODE_PROMPTS.md
-  ```
-  Then paste the Master Deployment Prompt from `CLAUDE_CODE_PROMPTS.md`.
+- **Use the bastion UI (recommended)**: open the dashboard, fill in the configuration form, save `environment.env`, and click **Launch Deployment** to run the parallelized workflow end to end.
 
-- **Run scripts directly (no agent required)**: make the scripts executable and invoke either the end-to-end runner or the new parallelized workflow with automatic verification:
+- **Run scripts directly**: make the scripts executable and invoke either the end-to-end runner or the new parallelized workflow with automatic verification:
   ```bash
   cd nkp-claude-code-deployment
   chmod +x scripts/*.sh
@@ -73,61 +67,44 @@ When the script completes, open `http://<bastion-ip>:8080` and perform the remai
   ./scripts/parallel-deploy-and-verify.sh
   ```
 
-### Agent-Specific Runbooks
+### Legacy agent prompts and runbooks
 
-Detailed, step-by-step instructions for `OpenAI GPT-5`, `Claude Code`, and any OpenAI-compatible model (e.g., LM Studio, LocalAI, or Ollama with an OpenAI API shim) are available in [`AGENT_AUTOMATION_GUIDE.md`](AGENT_AUTOMATION_GUIDE.md). Use it to launch an agent session with the right context files, apply the correct prompts, and drive the new parallelized runner.
+Previous agent-only prompts, parallel prompt sets, and the older deployment specification now live under `archive/` for reference. They are not used by the current UI or installer.
 
 ## 📋 Detailed Usage
 
-### Option A: Fully Automated Deployment
+### Option A: Fully Automated via UI
 
-Use the master prompt for a complete hands-off deployment:
+1. Run `scripts/install-deps-run-ui.sh` to prepare the bastion and start Flask.
+2. Open the dashboard at `http://<bastion-ip>:8080`.
+3. Fill in the configuration form, save `environment.env`, and choose **Launch Deployment** to run validation, preparation, deployment, and verification automatically.
 
-```
-Deploy NKP 2.16 to my pre-provisioned infrastructure. Use the configuration 
-in environment.env and nkp-deployment-spec.yaml. Execute all phases:
-1. Validate prerequisites
-2. Generate inventory
-3. Create bootstrap cluster
-4. Deploy management cluster
-5. Configure MetalLB
-6. Install Kommander
-7. Apply license
-8. Verify deployment
+### Option B: Automated via Parallel Runner
 
-Report progress at each step and stop on any critical errors.
-```
-
-### Option B: Phase-by-Phase Deployment
-
-For more control, use phase-specific prompts from `CLAUDE_CODE_PROMPTS.md` with any agent that can execute shell commands:
-
-1. **Validation Phase**:
-   ```
-   Execute Phase 1 from CLAUDE_CODE_PROMPTS.md - validate all prerequisites 
-   and report any issues before we proceed with deployment.
-   ```
-
-2. **Cluster Creation Phase**:
-   ```
-   Execute Phases 3-5 from CLAUDE_CODE_PROMPTS.md - create the bootstrap 
-   cluster, deploy the management cluster, and retrieve kubeconfig.
-   ```
-
-3. **Post-Deployment Phase**:
-   ```
-   Execute Phases 6-8 from CLAUDE_CODE_PROMPTS.md - configure MetalLB, 
-   install Kommander, apply license, and run verification.
-   ```
-
-### Option C: Manual Script Execution
-
-Run the scripts yourself or have any automation agent execute them:
+Make the scripts executable and use the parallel workflow without the UI:
 
 ```
-Make the deployment scripts executable and run the full deployment:
+cd nkp-claude-code-deployment
 chmod +x scripts/*.sh
+./scripts/parallel-deploy-and-verify.sh
+```
+
+### Option C: Phased Script Execution
+
+Execute individual phases when you need granular control:
+
+```
+# Validate prerequisites in parallel
+./scripts/parallel-validate.sh
+
+# Prepare nodes in parallel
+./scripts/parallel-prepare-nodes.sh
+
+# Deploy NKP sequentially
 ./scripts/deploy-nkp.sh
+
+# Verify the deployment
+./scripts/verify-deployment.sh
 ```
 
 ## 🔧 Configuration Reference
@@ -146,18 +123,6 @@ chmod +x scripts/*.sh
 | `NKP_LICENSE_TOKEN` | License token | No* |
 
 *License can be applied via UI if not provided
-
-### nkp-deployment-spec.yaml
-
-The deployment spec provides a structured YAML configuration covering:
-- Cluster settings
-- Node inventory
-- Networking (MetalLB, CNI)
-- Storage configuration
-- Kommander settings
-- Security options
-
-Edit this file for complex deployments or to enable optional features.
 
 ## ✅ Prerequisites Checklist
 
