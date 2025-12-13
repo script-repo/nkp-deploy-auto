@@ -50,7 +50,18 @@ ensure_python() {
   done
 
   echo "[INFO] Installing Python 3.11 with venv/pip support..."
-  dnf -y install python3.11 python3.11-pip python3.11-venv
+  if command -v dnf >/dev/null 2>&1; then
+    if ! dnf -y install python3.11 python3.11-pip python3.11-venv; then
+      echo "[WARN] python3.11-venv package not available; installing python3.11 and pip only (venv provided by stdlib)." >&2
+      dnf -y install python3.11 python3.11-pip
+    fi
+  elif command -v apt-get >/dev/null 2>&1; then
+    apt-get update -y
+    apt-get install -y python3.11 python3.11-venv python3.11-distutils python3-pip
+  else
+    echo "[ERROR] Supported package manager not found (dnf or apt-get). Install Python 3.11 manually and re-run." >&2
+    exit 1
+  fi
   PY_CMD="$(command -v python3.11)"
   "${PY_CMD}" -m ensurepip --upgrade
 }
