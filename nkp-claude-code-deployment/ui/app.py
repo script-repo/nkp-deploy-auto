@@ -1,18 +1,21 @@
 from __future__ import annotations
 
 import json
+import os
 import queue
-import shlex
 import subprocess
 import threading
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Any, Dict
 
-from flask import Flask, Response, jsonify, render_template, request
+from flask import Flask, Response, jsonify, render_template, request, send_file
+
+from scripts.prism_client import gather_inventory
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 ENV_FILE = BASE_DIR / "environment.env"
-SCRIPTS_DIR = BASE_DIR / "scripts"
+CONFIG_FILE = BASE_DIR / "configs" / "deployment.json"
+DEPLOY_SCRIPT = BASE_DIR / "scripts" / "run-deployment.sh"
 
 app = Flask(__name__)
 
@@ -480,21 +483,33 @@ PHASE_COMMANDS: Dict[str, Tuple[str, List[str]]] = {
     ),
 }
 
-PHASE_KEYWORDS: Dict[str, str] = {
-    "validate": "Validate prerequisites",
-    "bootstrap": "Deploy NKP",
-    "create cluster": "Deploy NKP",
-    "verify": "Verify deployment",
-    "kommander": "Deploy NKP",
-    "metallb": "Deploy NKP",
+defaults = {
+    "PRISM_CENTRAL_IP": "",
+    "PRISM_CENTRAL_USERNAME": "",
+    "PRISM_CENTRAL_PASSWORD": "",
+    "PRISM_CENTRAL_VERIFY_SSL": False,
+    "TARGET_CLUSTER": "",
+    "TARGET_SUBNET": "",
+    "TARGET_PROJECT": "",
+    "STORAGE_CONTAINER": "",
+    "NODE_CIDR": "10.240.0.0/16",
+    "SERVICE_CIDR": "10.96.0.0/12",
+    "METALLB_IP_RANGE": "192.168.1.240-192.168.1.250",
+    "SSH_USERNAME": "ubuntu",
+    "SSH_PRIVATE_KEY_PATH": "~/.ssh/id_rsa",
+    "OUTPUT_DIRECTORY": "${PWD}/nkp-output",
+    "KUBECONFIG_PATH": "${OUTPUT_DIRECTORY}/nkp-mgmt.conf",
+    "DRY_RUN": False,
 }
 
 
-def load_current_config() -> Dict[str, str]:
-    config = DEFAULT_CONFIG.copy()
+def load_config() -> Dict[str, Any]:
+    if CONFIG_FILE.exists():
+        return json.loads(CONFIG_FILE.read_text())
     if ENV_FILE.exists():
+        parsed: Dict[str, Any] = {}
         for line in ENV_FILE.read_text().splitlines():
-            if not line.startswith("export "):
+            if not line.strip() or line.strip().startswith("#"):
                 continue
             clean_line = line.replace("export ", "", 1)
             if "=" not in clean_line:
@@ -690,15 +705,70 @@ def run_deployment(mode: str, phases: List[str]) -> None:
 
 @app.route("/")
 def index() -> str:
-    config = load_current_config()
-    return render_template(
-        "index.html",
-        config=config,
-        phase_sets=PHASE_SETS,
-        field_sections=FIELD_SECTIONS,
-        field_metadata=FIELD_METADATA,
-    )
+    return render_template("index.html", config=load_config())
 
+
+@app.route("/api/verify", methods=["POST"])
+def api_verify():
+    body = request.json or {}
+    host = body.get("pc_ip", "").strip()
+    username = body.get("username", "").strip()
+    password = body.get("password", "").strip()
+    verify_ssl = bool(body.get("verify_ssl", False))
+
+    if not host or not username or not password:
+        return jsonify({"error": "Prism Central IP, username, and password are required."}), 400
+
+    try:
+        inventory = gather_inventory(host, username, password, verify_ssl)
+        return jsonify({"success": True, "inventory": inventory})
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"success": False, "error": str(exc)}), 500
+
+
+@app.route("/api/save-config", methods=["POST"])
+def api_save_config():
+    data = request.json or {}
+    merged = {**defaults, **data}
+    persist_config(merged)
+    return jsonify({"success": True})
+
+
+@app.route("/api/download-config")
+def api_download_config():
+    if not ENV_FILE.exists():
+        persist_config(load_config())
+    return send_file(ENV_FILE, as_attachment=True, download_name="environment.env")
+
+
+@app.route("/api/upload-config", methods=["POST"])
+def api_upload_config():
+    if "file" not in request.files:
+        return jsonify({"error": "No file provided"}), 400
+    file = request.files["file"]
+    content = file.read().decode()
+    parsed: Dict[str, Any] = {}
+    try:
+        parsed = json.loads(content)
+    except json.JSONDecodeError:
+        for line in content.splitlines():
+            if not line.strip() or line.strip().startswith("#"):
+                continue
+            if "=" in line:
+                key, value = line.split("=", 1)
+                parsed[key.strip()] = value.strip().strip('"')
+    persist_config({**defaults, **parsed})
+    return jsonify({"success": True, "config": load_config()})
+
+
+@app.route("/api/run", methods=["POST"])
+def api_run():
+    if state.get("running"):
+        return jsonify({"error": "Deployment already running"}), 409
+    persist_config(request.json or load_config())
+    thread = threading.Thread(target=run_deployment, daemon=True)
+    thread.start()
+    return jsonify({"success": True})
 
 @app.route("/api/config", methods=["POST"])
 def save_config() -> Response:
@@ -750,10 +820,12 @@ def stream() -> Response:
     def event_stream():
         while True:
             try:
-                payload = log_queue.get(timeout=1)
-                yield f"data: {json.dumps(payload)}\n\n"
+                message = log_queue.get(timeout=1)
+                yield f"data: {json.dumps({'message': message})}\n\n"
             except queue.Empty:
-                yield "data: {}\n\n"
+                if not state.get("running"):
+                    break
+                continue
 
     return Response(event_stream(), mimetype="text/event-stream")
 
@@ -769,4 +841,4 @@ def get_phases() -> Response:
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080, debug=False)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)), debug=True)
