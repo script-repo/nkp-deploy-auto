@@ -1,426 +1,265 @@
 <!doctype html>
 <html lang="en">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>NKP Bastion Deployment Dashboard</title>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body>
-<div class="page">
-    <header class="hero">
-        <div class="hero-copy">
-            <p class="eyebrow">Bastion-host UI</p>
-            <h1>NKP Deployment Control</h1>
-            <p class="subtitle">Review the automated and phased workflows, capture deployment variables, and watch real-time progress without leaving your browser.</p>
-            <div class="mode-toggle">
-                <label>
-                    <input type="radio" name="mode" value="automated" checked>
-                    Automated (Parallel deploy + verify)
-                </label>
-                <label>
-                    <input type="radio" name="mode" value="phased">
-                    Phased (run steps individually)
-                </label>
-            </div>
-            <div class="inline-status">
-                <span class="dot green" id="connection-dot"></span>
-                <span id="connection-label">Live event stream</span>
-                <span class="divider">•</span>
-                <span class="status-pill" id="status-text">Idle</span>
-            </div>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>NKP Quick Deploy</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      .card { background: white; border: 1px solid rgb(226 232 240); border-radius: 0.75rem; padding: 1.5rem; box-shadow: 0 10px 30px -12px rgba(15, 23, 42, 0.25); }
+      .label { display: block; color: rgb(71 85 105); font-weight: 600; font-size: 0.9rem; margin-bottom: 0.25rem; }
+      .input { width: 100%; border-radius: 0.6rem; border: 1px solid rgb(226 232 240); padding: 0.6rem 0.75rem; color: rgb(15 23 42); outline: none; transition: all 0.15s ease; }
+      .input:focus { border-color: rgb(59 130 246); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2); }
+    </style>
+  </head>
+  <body class="bg-slate-50 min-h-screen text-slate-900">
+    <div class="max-w-6xl mx-auto py-10 px-4 space-y-6">
+      <header class="flex items-center justify-between">
+        <div>
+          <p class="text-sm uppercase tracking-wide text-blue-600 font-semibold">Nutanix Kubernetes Platform</p>
+          <h1 class="text-3xl font-bold text-slate-900">Guided Deployment</h1>
+          <p class="text-slate-600">Reference implementation inspired by nkp-quickstart with a single-threaded, scripted workflow.</p>
         </div>
-        <div class="actions">
-            <button id="save-config" class="btn ghost">💾 Save configuration</button>
-            <button id="launch" class="btn primary">🚀 Launch deployment</button>
+        <div class="flex items-center space-x-3">
+          <button id="downloadBtn" class="px-4 py-2 rounded-lg bg-white border border-slate-200 shadow-sm hover:border-blue-500">Download Config</button>
+          <label class="px-4 py-2 rounded-lg bg-white border border-slate-200 shadow-sm cursor-pointer hover:border-blue-500">
+            <input type="file" id="uploadInput" class="hidden" />
+            Upload Config
+          </label>
         </div>
-    </header>
+      </header>
 
-    <main class="grid">
-        <section class="card form-card">
-            <div class="card-header">
-                <div>
-                    <p class="eyebrow">Configuration</p>
-                    <h2>Deployment variables</h2>
-                    <p class="muted">All scripts draw from this form. Fields marked with <span class="required">*</span> are required.</p>
-                </div>
-                <div class="header-actions">
-                    <span class="badge">Hover tooltips explain every field</span>
-                    <span id="save-status" class="muted"></span>
-                </div>
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <section class="card lg:col-span-2">
+          <h2 class="text-xl font-semibold mb-4">Prism Central Connection</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="label" for="pc_ip">Prism Central IP</label>
+              <input id="pc_ip" class="input" placeholder="10.10.10.10" />
             </div>
-            <form id="config-form">
-                <div class="section-list">
-                    {% for section in field_sections %}
-                        <div class="section">
-                            <div class="section-header">
-                                <div>
-                                    <p class="eyebrow">{{ section.title }}</p>
-                                    <p class="muted">{{ section.description }}</p>
-                                </div>
-                                <span class="pill">{{ section.id }}</span>
-                            </div>
-                            <div class="field-grid">
-                                {% for key in section.fields %}
-                                    {% set meta = field_metadata.get(key, {}) %}
-                                    <div class="field">
-                                        <label>
-                                            {{ meta.label or key }}
-                                            {% if meta.tooltip %}<span class="tooltip" title="{{ meta.tooltip }}">?</span>{% endif %}
-                                            {% if meta.required %}<span class="required">*</span>{% endif %}
-                                        </label>
-                                        {% if meta.options %}
-                                            <select name="{{ key }}">
-                                                {% for option in meta.options %}
-                                                    <option value="{{ option.value }}" {% if config.get(key, '') == option.value %}selected{% endif %}>{{ option.label }}</option>
-                                                {% endfor %}
-                                            </select>
-                                        {% else %}
-                                            <input
-                                                type="{{ meta.input_type or 'text' }}"
-                                                name="{{ key }}"
-                                                value="{{ config.get(key, '') }}"
-                                                placeholder="{{ meta.placeholder or '' }}"
-                                            >
-                                        {% endif %}
-                                    </div>
-                                {% endfor %}
-                            </div>
-                        </div>
-                    {% endfor %}
-                </div>
-            </form>
+            <div>
+              <label class="label" for="pc_user">Username</label>
+              <input id="pc_user" class="input" placeholder="admin" />
+            </div>
+            <div>
+              <label class="label" for="pc_password">Password</label>
+              <input id="pc_password" type="password" class="input" placeholder="••••••" />
+            </div>
+            <div class="flex items-center space-x-2 pt-6">
+              <input id="verify_ssl" type="checkbox" class="h-4 w-4 text-blue-600" />
+              <label for="verify_ssl" class="text-sm text-slate-700">Verify TLS certificates</label>
+            </div>
+          </div>
+          <div class="mt-4 flex items-center space-x-3">
+            <button id="verifyBtn" class="px-5 py-2 rounded-lg bg-blue-600 text-white font-semibold shadow hover:bg-blue-700">Verify & Fetch</button>
+            <p id="verifyStatus" class="text-sm text-slate-600"></p>
+          </div>
         </section>
 
-        <section class="card dashboard">
-            <div class="card-header space-between">
-                <div>
-                    <p class="eyebrow">Progress</p>
-                    <h2>Deployment status</h2>
-                </div>
-                <div class="timing-shell">
-                    <div class="progress-shell">
-                        <div id="progress-bar" class="progress-bar" style="width: 0%"></div>
-                    </div>
-                    <div class="timer-block">
-                        <div class="timer-label">Total time</div>
-                        <div class="timer-value" id="total-timer">--:--</div>
-                    </div>
-                </div>
-            </div>
-            <div class="phase-controls" id="phase-toggle"></div>
-            <div class="phase-list" id="phase-list"></div>
-            <div class="terminal">
-                <div class="terminal-header">
-                    <span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span>
-                    <span class="terminal-title">Console output</span>
-                    <div class="terminal-actions">
-                        <button class="pill" id="clear-terminal" type="button">Clear</button>
-                    </div>
-                </div>
-                <pre id="terminal-output"></pre>
-            </div>
+        <section class="card">
+          <h2 class="text-xl font-semibold mb-4">Progress</h2>
+          <div class="w-full bg-slate-200 rounded-full h-3 mb-3">
+            <div id="progressBar" class="bg-blue-600 h-3 rounded-full" style="width: 0%;"></div>
+          </div>
+          <p id="progressText" class="text-sm text-slate-600">Idle</p>
+          <div class="mt-4 h-40 overflow-y-auto bg-slate-900 text-slate-50 text-sm font-mono rounded-lg p-3" id="logBox"></div>
         </section>
-    </main>
-</div>
+      </div>
 
-<script>
-    const phaseSets = {{ phase_sets | tojson }};
-            const terminalOutput = document.getElementById('terminal-output');
-            const progressBar = document.getElementById('progress-bar');
-            const phaseList = document.getElementById('phase-list');
-            const modeInputs = document.querySelectorAll('input[name="mode"]');
-            const saveStatus = document.getElementById('save-status');
-            const statusText = document.getElementById('status-text');
-            const connectionDot = document.getElementById('connection-dot');
-            const totalTimerEl = document.getElementById('total-timer');
+      <section class="card">
+        <h2 class="text-xl font-semibold mb-4">Deployment Inputs</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label class="label" for="cluster">Cluster</label>
+            <select id="cluster" class="input"></select>
+          </div>
+          <div>
+            <label class="label" for="subnet">Subnet</label>
+            <select id="subnet" class="input"></select>
+          </div>
+          <div>
+            <label class="label" for="project">Project</label>
+            <select id="project" class="input"></select>
+          </div>
+          <div>
+            <label class="label" for="container">Storage Container</label>
+            <select id="container" class="input"></select>
+          </div>
+          <div>
+            <label class="label" for="nodeCidr">Node CIDR</label>
+            <input id="nodeCidr" class="input" />
+          </div>
+          <div>
+            <label class="label" for="serviceCidr">Service CIDR</label>
+            <input id="serviceCidr" class="input" />
+          </div>
+          <div>
+            <label class="label" for="metallb">MetalLB IP Range</label>
+            <input id="metallb" class="input" />
+          </div>
+          <div>
+            <label class="label" for="sshUser">SSH Username</label>
+            <input id="sshUser" class="input" />
+          </div>
+          <div>
+            <label class="label" for="sshKey">SSH Private Key Path</label>
+            <input id="sshKey" class="input" />
+          </div>
+        </div>
+        <div class="mt-6 flex items-center space-x-3">
+          <button id="saveBtn" class="px-4 py-2 rounded-lg bg-white border border-slate-200 shadow-sm hover:border-blue-500">Save Config</button>
+          <button id="runBtn" class="px-5 py-2 rounded-lg bg-emerald-600 text-white font-semibold shadow hover:bg-emerald-700">Launch Scripted Install</button>
+        </div>
+      </section>
+    </div>
 
-            let phaseTimers = {};
-            let totalTimerStart = null;
-            let totalTimerStop = null;
-            let timerInterval = null;
+    <script>
+      const initialConfig = {{ config|tojson }};
 
-            function formatDuration(ms) {
-                if (!ms || ms < 0) return '--:--';
-                const totalSeconds = Math.floor(ms / 1000);
-                const hours = Math.floor(totalSeconds / 3600);
-                const minutes = Math.floor((totalSeconds % 3600) / 60);
-                const seconds = totalSeconds % 60;
-                if (hours > 0) {
-                    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-                }
-                return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-            }
+      const fields = {
+        pc_ip: document.getElementById('pc_ip'),
+        pc_user: document.getElementById('pc_user'),
+        pc_password: document.getElementById('pc_password'),
+        verify_ssl: document.getElementById('verify_ssl'),
+        cluster: document.getElementById('cluster'),
+        subnet: document.getElementById('subnet'),
+        project: document.getElementById('project'),
+        container: document.getElementById('container'),
+        nodeCidr: document.getElementById('nodeCidr'),
+        serviceCidr: document.getElementById('serviceCidr'),
+        metallb: document.getElementById('metallb'),
+        sshUser: document.getElementById('sshUser'),
+        sshKey: document.getElementById('sshKey'),
+      };
 
-            function ensureTimerInterval() {
-                if (!timerInterval) {
-                    timerInterval = setInterval(updateTimers, 1000);
-                }
-            }
+      function seedForm(cfg) {
+        fields.pc_ip.value = cfg.PRISM_CENTRAL_IP || '';
+        fields.pc_user.value = cfg.PRISM_CENTRAL_USERNAME || '';
+        fields.pc_password.value = cfg.PRISM_CENTRAL_PASSWORD || '';
+        fields.verify_ssl.checked = cfg.PRISM_CENTRAL_VERIFY_SSL || false;
+        fields.nodeCidr.value = cfg.NODE_CIDR || '';
+        fields.serviceCidr.value = cfg.SERVICE_CIDR || '';
+        fields.metallb.value = cfg.METALLB_IP_RANGE || '';
+        fields.sshUser.value = cfg.SSH_USERNAME || '';
+        fields.sshKey.value = cfg.SSH_PRIVATE_KEY_PATH || '';
+        populateSelect(fields.cluster, cfg.clusters || [], cfg.TARGET_CLUSTER);
+        populateSelect(fields.subnet, cfg.subnets || [], cfg.TARGET_SUBNET);
+        populateSelect(fields.project, cfg.projects || [], cfg.TARGET_PROJECT);
+        populateSelect(fields.container, cfg.storage_containers || [], cfg.STORAGE_CONTAINER);
+      }
 
-            function updateTimers() {
-                if (totalTimerEl) {
-                    if (totalTimerStart) {
-                        const totalEnd = totalTimerStop || Date.now();
-                        totalTimerEl.textContent = formatDuration(totalEnd - totalTimerStart);
-                    } else {
-                        totalTimerEl.textContent = '--:--';
-                    }
-                }
-
-                document.querySelectorAll('.phase-card').forEach(card => {
-                    const label = card.dataset.label;
-                    const timerEl = card.querySelector('.phase-timer');
-                    const timerData = phaseTimers[label];
-                    if (!timerEl) return;
-                    if (timerData && timerData.start) {
-                        const endTime = timerData.end || Date.now();
-                        timerEl.textContent = formatDuration(endTime - timerData.start);
-                    } else {
-                        timerEl.textContent = '--:--';
-                    }
-                });
-            }
-
-            function resetTimers() {
-                phaseTimers = {};
-                totalTimerStart = null;
-                totalTimerStop = null;
-                updateTimers();
-            }
-
-            function startTotalTimer() {
-                totalTimerStart = Date.now();
-                totalTimerStop = null;
-                ensureTimerInterval();
-                updateTimers();
-            }
-
-            function stopTotalTimer() {
-                if (totalTimerStart && !totalTimerStop) {
-                    totalTimerStop = Date.now();
-                    updateTimers();
-                }
-            }
-
-            function startPhaseTimer(label) {
-                phaseTimers[label] = {start: Date.now(), end: null};
-                ensureTimerInterval();
-                updateTimers();
-            }
-
-            function stopPhaseTimer(label) {
-                if (phaseTimers[label] && !phaseTimers[label].end) {
-                    phaseTimers[label].end = Date.now();
-                    updateTimers();
-                }
-            }
-
-            function renderPhases(mode) {
-                phaseList.innerHTML = '';
-                const phases = phaseSets[mode] || [];
-                phases.forEach(phase => {
-                    const card = document.createElement('div');
-                    card.className = 'phase-card pending';
-                    card.dataset.label = phase;
-                    card.innerHTML = `<div class="phase-title">${phase}</div><div class="phase-meta"><div class="phase-status">Pending</div><div class="phase-timer">--:--</div></div>`;
-                    if (mode === 'phased') {
-                        const checkbox = document.createElement('input');
-                        checkbox.type = 'checkbox';
-                        checkbox.checked = true;
-                        checkbox.dataset.phase = phase;
-                checkbox.className = 'phase-checkbox';
-                card.prepend(checkbox);
-            }
-            phaseList.appendChild(card);
+      function populateSelect(element, items, selected) {
+        element.innerHTML = '';
+        const options = items.length ? items : [{ name: 'Select after verify', uuid: '' }];
+        options.forEach((item) => {
+          const opt = document.createElement('option');
+          opt.value = item.uuid || item.name || '';
+          opt.textContent = item.name || item.uuid;
+          if (selected && selected === opt.value) opt.selected = true;
+          element.appendChild(opt);
         });
-    }
+      }
 
-            function updatePhaseStatus(label, status) {
-                const card = Array.from(document.querySelectorAll('.phase-card')).find(c => c.dataset.label === label);
-                if (!card) return;
+      seedForm(initialConfig);
 
-                document.querySelectorAll('.phase-card.active').forEach(activeCard => {
-                    if (activeCard.dataset.label !== label) {
-                        activeCard.classList.remove('active');
-                        activeCard.classList.add('done');
-                        const previousStatus = activeCard.querySelector('.phase-status');
-                        previousStatus.textContent = 'Done';
-                        stopPhaseTimer(activeCard.dataset.label);
-                    }
-                });
-
-                const statusEl = card.querySelector('.phase-status');
-                statusEl.textContent = status;
-                card.classList.remove('pending', 'done');
-                if (status === 'Running') {
-                    card.classList.add('active');
-                    startPhaseTimer(label);
-                } else if (status === 'Done') {
-                    card.classList.add('done');
-                    stopPhaseTimer(label);
-                } else {
-                    card.classList.add('pending');
-                }
-            }
-
-            function resetPhases(mode) {
-                const phases = phaseSets[mode] || [];
-                phaseTimers = {};
-                phaseList.querySelectorAll('.phase-card').forEach(card => {
-                    card.classList.remove('active', 'done');
-                    card.classList.add('pending');
-                    const statusEl = card.querySelector('.phase-status');
-                    statusEl.textContent = 'Pending';
-                    const timerEl = card.querySelector('.phase-timer');
-                    if (timerEl) timerEl.textContent = '--:--';
-                    if (mode === 'phased') {
-                        const checkbox = card.querySelector('input[type="checkbox"]');
-                        if (checkbox) checkbox.checked = phases.includes(card.dataset.label);
-                    }
-                });
-                updateTimers();
-            }
-
-    function appendTerminalLine(text) {
-        terminalOutput.textContent += `\n${text}`;
-        terminalOutput.scrollTop = terminalOutput.scrollHeight;
-    }
-
-    function highlightMissing(fields) {
-        document.querySelectorAll('#config-form input, #config-form select').forEach(el => el.classList.remove('invalid'));
-        fields.forEach(field => {
-            const el = document.querySelector(`[name="${field}"]`);
-            if (el) el.classList.add('invalid');
-        });
-    }
-
-    function setConnectionState(state) {
-        if (state === 'open') {
-            connectionDot.className = 'dot green';
-            document.getElementById('connection-label').textContent = 'Live event stream';
-        } else {
-            connectionDot.className = 'dot red';
-            document.getElementById('connection-label').textContent = 'Disconnected (retrying...)';
-        }
-    }
-
-    function saveConfiguration() {
-        const formData = new FormData(document.getElementById('config-form'));
-        const payload = Object.fromEntries(formData.entries());
-        saveStatus.textContent = 'Saving...';
-        fetch('/api/config', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(payload)
-        }).then(async (r) => {
-            const data = await r.json();
-            if (!r.ok) {
-                saveStatus.textContent = data.message || 'Validation failed';
-                highlightMissing(data.missing || []);
-                appendTerminalLine(data.message || 'Validation failed');
-                return;
-            }
-            saveStatus.textContent = data.message || 'Configuration saved';
-            highlightMissing([]);
-            appendTerminalLine(data.message || 'Configuration saved');
-        }).catch(err => {
-            saveStatus.textContent = 'Save failed';
-            appendTerminalLine(err.toString());
-        });
-    }
-
-    function getSelectedPhases(mode) {
-        if (mode !== 'phased') return phaseSets[mode];
-        const boxes = document.querySelectorAll('.phase-checkbox');
-        return Array.from(boxes).filter(b => b.checked).map(b => b.dataset.phase);
-    }
-
-            function launchDeployment() {
-                const mode = document.querySelector('input[name="mode"]:checked').value;
-                const phases = getSelectedPhases(mode);
-                progressBar.style.width = '0%';
-                progressBar.dataset.status = 'running';
-                document.getElementById('launch').disabled = true;
-                resetPhases(mode);
-                resetTimers();
-                statusText.textContent = 'Starting...';
-                fetch('/api/start', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({mode, phases})
-                }).then(async r => {
-                    const data = await r.json();
-                    if (!r.ok) {
-                        appendTerminalLine(data.message || 'Unable to start deployment');
-                        document.getElementById('launch').disabled = false;
-                        statusText.textContent = 'Idle';
-                        return;
-                    }
-                    appendTerminalLine(data.message || 'Deployment started');
-                    statusText.textContent = `Running (${mode})`;
-                    startTotalTimer();
-                }).catch(err => {
-                    appendTerminalLine(err.toString());
-                    statusText.textContent = 'Idle';
-                    resetTimers();
-                });
-            }
-
-            function connectStream() {
-                setConnectionState('open');
-                const source = new EventSource('/stream');
-        source.onopen = () => setConnectionState('open');
-        source.onerror = () => setConnectionState('closed');
-                source.onmessage = (event) => {
-                    if (!event.data || event.data === '{}') return;
-                    const payload = JSON.parse(event.data);
-            if (payload.type === 'log') {
-                appendTerminalLine(payload.message);
-            }
-            if (payload.type === 'status') {
-                appendTerminalLine(payload.message);
-                statusText.textContent = payload.message;
-            }
-            if (payload.type === 'phase') {
-                updatePhaseStatus(payload.message, 'Running');
-            }
-                    if (payload.type === 'progress') {
-                        try {
-                            const progress = JSON.parse(payload.message);
-                            progressBar.style.width = `${progress.percent}%`;
-                            progressBar.dataset.status = progress.status;
-                            if (progress.status === 'complete' || progress.status === 'error') {
-                                document.querySelectorAll('.phase-card.active').forEach(card => stopPhaseTimer(card.dataset.label));
-                                stopTotalTimer();
-                            }
-                            if (progress.status === 'complete') {
-                                document.querySelectorAll('.phase-card').forEach(card => card.classList.add('done'));
-                                document.getElementById('launch').disabled = false;
-                                statusText.textContent = 'Complete';
-                                updateTimers();
-                            }
-                            if (progress.status === 'error') {
-                                document.getElementById('launch').disabled = false;
-                                statusText.textContent = 'Failed';
-                                updateTimers();
-                            }
-                        } catch (e) {
-                            console.warn('Progress parse error', e);
-                        }
-            }
+      document.getElementById('verifyBtn').addEventListener('click', async () => {
+        const payload = {
+          pc_ip: fields.pc_ip.value,
+          username: fields.pc_user.value,
+          password: fields.pc_password.value,
+          verify_ssl: fields.verify_ssl.checked,
         };
-    }
+        document.getElementById('verifyStatus').textContent = 'Contacting Prism Central...';
+        const res = await fetch('/api/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (data.success) {
+          document.getElementById('verifyStatus').textContent = 'Connected. Values populated below.';
+          const inventory = data.inventory;
+          populateSelect(fields.cluster, inventory.clusters, initialConfig.TARGET_CLUSTER);
+          populateSelect(fields.subnet, inventory.subnets, initialConfig.TARGET_SUBNET);
+          populateSelect(fields.project, inventory.projects, initialConfig.TARGET_PROJECT);
+          populateSelect(fields.container, inventory.storage_containers, initialConfig.STORAGE_CONTAINER);
+          initialConfig.clusters = inventory.clusters;
+          initialConfig.subnets = inventory.subnets;
+          initialConfig.projects = inventory.projects;
+          initialConfig.storage_containers = inventory.storage_containers;
+        } else {
+          document.getElementById('verifyStatus').textContent = data.error || 'Unable to connect';
+        }
+      });
 
-    document.getElementById('save-config').addEventListener('click', saveConfiguration);
-            document.getElementById('launch').addEventListener('click', launchDeployment);
-            document.getElementById('clear-terminal').addEventListener('click', () => terminalOutput.textContent = '');
-            modeInputs.forEach(input => input.addEventListener('change', (e) => renderPhases(e.target.value)));
+      document.getElementById('saveBtn').addEventListener('click', async () => {
+        const payload = collectPayload();
+        await fetch('/api/save-config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        document.getElementById('verifyStatus').textContent = 'Configuration saved locally.';
+      });
 
-            renderPhases('automated');
-            connectStream();
-            updateTimers();
-        </script>
-</body>
+      document.getElementById('runBtn').addEventListener('click', async () => {
+        const payload = collectPayload();
+        const res = await fetch('/api/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!data.success) alert(data.error || 'Unable to start deployment');
+      });
+
+      document.getElementById('downloadBtn').addEventListener('click', () => {
+        window.location.href = '/api/download-config';
+      });
+
+      document.getElementById('uploadInput').addEventListener('change', async (event) => {
+        const file = event.target.files[0];
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await fetch('/api/upload-config', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (data.success) seedForm(data.config);
+      });
+
+      function collectPayload() {
+        return {
+          PRISM_CENTRAL_IP: fields.pc_ip.value,
+          PRISM_CENTRAL_USERNAME: fields.pc_user.value,
+          PRISM_CENTRAL_PASSWORD: fields.pc_password.value,
+          PRISM_CENTRAL_VERIFY_SSL: fields.verify_ssl.checked,
+          TARGET_CLUSTER: fields.cluster.value,
+          TARGET_SUBNET: fields.subnet.value,
+          TARGET_PROJECT: fields.project.value,
+          STORAGE_CONTAINER: fields.container.value,
+          NODE_CIDR: fields.nodeCidr.value,
+          SERVICE_CIDR: fields.serviceCidr.value,
+          METALLB_IP_RANGE: fields.metallb.value,
+          SSH_USERNAME: fields.sshUser.value,
+          SSH_PRIVATE_KEY_PATH: fields.sshKey.value,
+        };
+      }
+
+      const eventSource = new EventSource('/api/stream');
+      const logBox = document.getElementById('logBox');
+      eventSource.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        logBox.textContent += data.message;
+        logBox.scrollTop = logBox.scrollHeight;
+      };
+
+      async function refreshStatus() {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        document.getElementById('progressBar').style.width = `${data.progress || 0}%`;
+        document.getElementById('progressText').textContent = `${data.step || 'idle'}`;
+        requestAnimationFrame(refreshStatus);
+      }
+      refreshStatus();
+    </script>
+  </body>
 </html>
