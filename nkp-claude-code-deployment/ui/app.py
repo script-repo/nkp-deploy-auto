@@ -21,6 +21,7 @@ deployment_thread: threading.Thread | None = None
 deployment_lock = threading.Lock()
 deployment_active = False
 current_mode = "automated"
+state: Dict[str, str | float] = {"progress": 0.0, "status": "idle", "step": "Idle"}
 
 DEFAULT_CONFIG: Dict[str, str] = {
     "CLUSTER_NAME": "nkp-mgmt",
@@ -589,6 +590,26 @@ def enqueue_event(event_type: str, message: str) -> None:
     log_queue.put({"type": event_type, "message": message})
 
 
+def update_state(progress: float | None = None, status: str | None = None, step: str | None = None) -> None:
+    if progress is not None:
+        state["progress"] = progress
+    if status is not None:
+        state["status"] = status
+    if step is not None:
+        state["step"] = step
+
+    enqueue_event(
+        "progress",
+        json.dumps(
+            {
+                "percent": state.get("progress", 0.0),
+                "status": state.get("status", "idle"),
+                "step": state.get("step", ""),
+            }
+        ),
+    )
+
+
 def build_command_sequence(mode: str, phases: List[str]) -> List[Tuple[str, List[str]]]:
     if mode == "automated":
         return [("Parallel deploy + verify", ["/bin/bash", str(SCRIPTS_DIR / "parallel-deploy-and-verify.sh")])]
@@ -619,11 +640,17 @@ def run_deployment(mode: str, phases: List[str]) -> None:
 
     commands = build_command_sequence(mode, phases)
     total_steps = len(commands) or 1
-    enqueue_event("status", f"Starting {mode} deployment flow ({total_steps} step(s))")
+    start_message = f"Starting {mode} deployment flow ({total_steps} step(s))"
+    enqueue_event("status", start_message)
+    enqueue_event("log", start_message)
+    update_state(progress=0.0, status="running", step="Initializing deployment")
 
     for index, (label, command) in enumerate(commands, start=1):
+        step_start_percent = ((index - 1) / total_steps) * 100
         enqueue_event("phase", label)
         enqueue_event("status", f"Running {label}")
+        enqueue_event("log", f"[STEP {index}/{total_steps}] Starting {label}")
+        update_state(progress=step_start_percent, status="running", step=f"Starting {label}")
 
         process = subprocess.Popen(
             command,
@@ -645,15 +672,18 @@ def run_deployment(mode: str, phases: List[str]) -> None:
         return_code = process.wait()
         if return_code != 0:
             enqueue_event("status", f"{label} failed with exit code {return_code}")
-            enqueue_event("progress", json.dumps({"percent": (index / total_steps) * 100, "status": "error"}))
+            enqueue_event("log", f"[STEP {index}/{total_steps}] {label} failed with exit code {return_code}")
+            update_state(progress=(index / total_steps) * 100, status="error", step=f"{label} failed")
             with deployment_lock:
                 deployment_active = False
             return
 
-        enqueue_event("progress", json.dumps({"percent": (index / total_steps) * 100, "status": "running"}))
+        enqueue_event("log", f"[STEP {index}/{total_steps}] Completed {label}")
+        update_state(progress=(index / total_steps) * 100, status="running", step=f"Completed {label}")
 
     enqueue_event("status", "Deployment flow completed")
-    enqueue_event("progress", json.dumps({"percent": 100, "status": "complete"}))
+    enqueue_event("log", "All deployment steps completed")
+    update_state(progress=100.0, status="complete", step="Deployment flow completed")
     with deployment_lock:
         deployment_active = False
 
@@ -703,11 +733,16 @@ def start_deployment() -> Response:
     phases = data.get("phases", PHASE_SETS.get(mode, []))
 
     current_mode = mode
-    enqueue_event("progress", json.dumps({"percent": 0, "status": "running"}))
+    update_state(progress=0.0, status="running", step="Queued deployment")
 
     deployment_thread = threading.Thread(target=run_deployment, args=(mode, phases), daemon=True)
     deployment_thread.start()
     return jsonify({"message": f"Started {mode} deployment", "mode": mode, "phases": phases})
+
+
+@app.route("/api/status")
+def get_status() -> Response:
+    return jsonify({"active": deployment_active, "mode": current_mode, "state": state})
 
 
 @app.route("/stream")
@@ -721,6 +756,11 @@ def stream() -> Response:
                 yield "data: {}\n\n"
 
     return Response(event_stream(), mimetype="text/event-stream")
+
+
+@app.route("/api/stream")
+def api_stream() -> Response:
+    return stream()
 
 
 @app.route("/api/phases")

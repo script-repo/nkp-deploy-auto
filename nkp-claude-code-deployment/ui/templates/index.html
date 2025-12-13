@@ -337,6 +337,37 @@
         return Array.from(boxes).filter(b => b.checked).map(b => b.dataset.phase);
     }
 
+            function applyProgress(progress) {
+                if (!progress || typeof progress.percent === 'undefined') return;
+
+                progressBar.style.width = `${progress.percent}%`;
+                progressBar.dataset.status = progress.status || 'running';
+
+                if (progress.step) {
+                    statusText.textContent = progress.step;
+                }
+
+                if (progress.status === 'complete' || progress.status === 'error') {
+                    document.querySelectorAll('.phase-card.active').forEach(card => stopPhaseTimer(card.dataset.label));
+                    stopTotalTimer();
+                } else if (progress.status === 'running' && !totalTimerStart) {
+                    startTotalTimer();
+                }
+
+                if (progress.status === 'complete') {
+                    document.querySelectorAll('.phase-card').forEach(card => card.classList.add('done'));
+                    document.getElementById('launch').disabled = false;
+                    statusText.textContent = progress.step || 'Complete';
+                    updateTimers();
+                }
+
+                if (progress.status === 'error') {
+                    document.getElementById('launch').disabled = false;
+                    statusText.textContent = progress.step || 'Failed';
+                    updateTimers();
+                }
+            }
+
             function launchDeployment() {
                 const mode = document.querySelector('input[name="mode"]:checked').value;
                 const phases = getSelectedPhases(mode);
@@ -370,7 +401,7 @@
 
             function connectStream() {
                 setConnectionState('open');
-                const source = new EventSource('/stream');
+                const source = new EventSource('/api/stream');
         source.onopen = () => setConnectionState('open');
         source.onerror = () => setConnectionState('closed');
                 source.onmessage = (event) => {
@@ -389,29 +420,30 @@
                     if (payload.type === 'progress') {
                         try {
                             const progress = JSON.parse(payload.message);
-                            progressBar.style.width = `${progress.percent}%`;
-                            progressBar.dataset.status = progress.status;
-                            if (progress.status === 'complete' || progress.status === 'error') {
-                                document.querySelectorAll('.phase-card.active').forEach(card => stopPhaseTimer(card.dataset.label));
-                                stopTotalTimer();
-                            }
-                            if (progress.status === 'complete') {
-                                document.querySelectorAll('.phase-card').forEach(card => card.classList.add('done'));
-                                document.getElementById('launch').disabled = false;
-                                statusText.textContent = 'Complete';
-                                updateTimers();
-                            }
-                            if (progress.status === 'error') {
-                                document.getElementById('launch').disabled = false;
-                                statusText.textContent = 'Failed';
-                                updateTimers();
-                            }
+                            applyProgress(progress);
                         } catch (e) {
                             console.warn('Progress parse error', e);
                         }
             }
         };
     }
+
+            function hydrateStatus() {
+                fetch('/api/status').then(async (r) => {
+                    const data = await r.json();
+                    const progress = data.state || {};
+                    applyProgress({
+                        percent: progress.progress ?? progress.percent ?? 0,
+                        status: progress.status,
+                        step: progress.step
+                    });
+                    if (!data.active) {
+                        stopTotalTimer();
+                    }
+                }).catch(() => {
+                    // no-op hydration failure
+                });
+            }
 
     document.getElementById('save-config').addEventListener('click', saveConfiguration);
             document.getElementById('launch').addEventListener('click', launchDeployment);
@@ -420,6 +452,7 @@
 
             renderPhases('automated');
             connectStream();
+            hydrateStatus();
             updateTimers();
         </script>
 </body>
