@@ -3,10 +3,20 @@ from __future__ import annotations
 import json
 import os
 import queue
+import shlex
 import subprocess
+import sys
 import threading
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List, Tuple
+
+# Compute repo root early so we can add it to sys.path before importing
+# local modules.  prism_client lives in <repo_root>/scripts/ but app.py
+# is in <repo_root>/ui/ — Flask runs with cwd=ui, so the plain
+# "from scripts.prism_client import ..." would fail without this.
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 from flask import Flask, Response, jsonify, render_template, request, send_file
 
@@ -15,6 +25,7 @@ from scripts.prism_client import gather_inventory
 BASE_DIR = Path(__file__).resolve().parents[1]
 ENV_FILE = BASE_DIR / "environment.env"
 DEPLOYMENT_FILE = BASE_DIR / "deployment.json"
+CONFIG_FILE = DEPLOYMENT_FILE  # alias — load_config reads the JSON snapshot
 SCRIPTS_DIR = BASE_DIR / "scripts"
 
 app = Flask(__name__)
@@ -25,6 +36,29 @@ deployment_lock = threading.Lock()
 deployment_active = False
 current_mode = "automated"
 SENSITIVE_FIELDS = {"PRISM_CENTRAL_PASSWORD"}
+
+# Mutable deployment state shared between the background thread and routes.
+state: Dict[str, Any] = {
+    "progress": 0.0,
+    "status": "idle",
+    "step": "",
+    "running": False,
+}
+
+# Keywords found in script output that indicate a phase change.
+PHASE_KEYWORDS: Dict[str, str] = {
+    "validate": "Validate & prepare",
+    "prepare nodes": "Prepare nodes",
+    "prepare node": "Prepare nodes",
+    "deploy nkp": "Deploy NKP",
+    "phase 3": "Deploy NKP",
+    "phase 4": "Deploy NKP",
+    "bootstrap": "Deploy NKP",
+    "kommander": "Deploy NKP",
+    "metallb": "Deploy NKP",
+    "verification": "Verify deployment",
+    "verify": "Verify deployment",
+}
 
 DEFAULT_CONFIG: Dict[str, str] = {
     "CLUSTER_NAME": "nkp-mgmt",
@@ -499,13 +533,13 @@ defaults = {
     "TARGET_SUBNET": "",
     "TARGET_PROJECT": "",
     "STORAGE_CONTAINER": "",
-    "NODE_CIDR": "10.240.0.0/16",
+    "POD_CIDR": "10.244.0.0/16",
     "SERVICE_CIDR": "10.96.0.0/12",
     "METALLB_IP_RANGE": "192.168.1.240-192.168.1.250",
-    "SSH_USERNAME": "ubuntu",
-    "SSH_PRIVATE_KEY_PATH": "~/.ssh/id_rsa",
-    "OUTPUT_DIRECTORY": "${PWD}/nkp-output",
-    "KUBECONFIG_PATH": "${OUTPUT_DIRECTORY}/nkp-mgmt.conf",
+    "SSH_USER": "konvoy",
+    "SSH_PRIVATE_KEY_FILE": "~/.ssh/id_rsa",
+    "OUTPUT_DIR": "${PWD}/nkp-output",
+    "KUBECONFIG_PATH": "${OUTPUT_DIR}/nkp-mgmt.conf",
     "DRY_RUN": False,
 }
 
@@ -522,8 +556,9 @@ def load_config() -> Dict[str, Any]:
             if "=" not in clean_line:
                 continue
             key, value = clean_line.split("=", 1)
-            config[key.strip()] = value.strip().strip('"')
-    return config
+            parsed[key.strip()] = value.strip().strip('"')
+        return parsed
+    return {}
 
 
 def format_env_lines(config: Dict[str, str], skip_keys: set[str] | None = None) -> List[str]:
@@ -633,6 +668,7 @@ def update_state(progress: float | None = None, status: str | None = None, step:
         state["progress"] = progress
     if status is not None:
         state["status"] = status
+        state["running"] = status == "running"
     if step is not None:
         state["step"] = step
 
@@ -729,7 +765,7 @@ def run_deployment(mode: str, phases: List[str], extra_env: Dict[str, str] | Non
 
 @app.route("/")
 def index() -> str:
-    return render_template("index.html", config=load_config())
+    return render_template("index.html", config=load_config(), phase_sets=PHASE_SETS)
 
 
 @app.route("/api/verify", methods=["POST"])
@@ -787,10 +823,15 @@ def api_upload_config():
 
 @app.route("/api/run", methods=["POST"])
 def api_run():
-    if state.get("running"):
+    if deployment_active:
         return jsonify({"error": "Deployment already running"}), 409
-    persist_config(request.json or load_config())
-    thread = threading.Thread(target=run_deployment, daemon=True)
+    config = request.json or load_config()
+    persist_config(config)
+    thread = threading.Thread(
+        target=run_deployment,
+        args=("automated", PHASE_SETS["automated"], None),
+        daemon=True,
+    )
     thread.start()
     return jsonify({"success": True})
 
@@ -868,7 +909,7 @@ def stream() -> Response:
                 message = log_queue.get(timeout=1)
                 yield f"data: {json.dumps({'message': message})}\n\n"
             except queue.Empty:
-                if not state.get("running"):
+                if not deployment_active:
                     break
                 continue
 

@@ -105,12 +105,13 @@ fi
 #---------------
 # Post-checks
 #---------------
-cat <<'SUMMARY'
+# NOTE: heredoc is intentionally unquoted so that command substitutions expand.
+cat <<SUMMARY
 [INFO] Bastion prerequisites completed.
-- SSH: $(sshd -V >/dev/null 2>&1 && echo "enabled" || echo "not available")
-- Docker: $(docker --version 2>/dev/null || echo "not found")
-- kubectl: $(kubectl version --client --short 2>/dev/null || echo "not found")
-- Helm: $(helm version --short 2>/dev/null || echo "not found")
+- SSH:     $(command -v sshd >/dev/null 2>&1 && sshd -V 2>&1 | head -1 || echo "not found")
+- Docker:  $(docker --version 2>/dev/null || echo "not found")
+- kubectl: $(kubectl version --client --short 2>/dev/null || kubectl version --client 2>/dev/null | head -1 || echo "not found")
+- Helm:    $(helm version --short 2>/dev/null || echo "not found")
 SUMMARY
 
 if ! groups | grep -q '\bdocker\b'; then
