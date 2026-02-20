@@ -561,6 +561,22 @@ def load_config() -> Dict[str, Any]:
     return {}
 
 
+def _quote_env_value(value: str) -> str:
+    """Quote a value for writing into a bash env file.
+
+    shlex.quote() always produces single-quoted output, which suppresses
+    bash variable expansion.  Values that intentionally contain bash variable
+    references (e.g. ``${OUTPUT_DIR}/nkp-mgmt.conf``) must be double-quoted
+    so that the references expand when the file is sourced.
+    """
+    s = str(value)
+    if "${" in s:
+        # Escape only characters that are special inside double-quotes.
+        escaped = s.replace("\\", "\\\\").replace('"', '\\"').replace("`", "\\`")
+        return f'"{escaped}"'
+    return shlex.quote(s)
+
+
 def format_env_lines(config: Dict[str, str], skip_keys: set[str] | None = None) -> List[str]:
     skip_keys = skip_keys or set()
     section_headers = [
@@ -631,7 +647,7 @@ def format_env_lines(config: Dict[str, str], skip_keys: set[str] | None = None) 
             if key in skip_keys:
                 continue
             value = config.get(key, "")
-            lines.append(f"export {key}={shlex.quote(str(value))}")
+            lines.append(f"export {key}={_quote_env_value(str(value))}")
         lines.append("")
     lines.append("export CONTROL_PLANE_NODES=\"${CONTROL_PLANE_1_ADDRESS} ${CONTROL_PLANE_2_ADDRESS} ${CONTROL_PLANE_3_ADDRESS}\"")
     lines.append("export WORKER_NODES=\"${WORKER_1_ADDRESS} ${WORKER_2_ADDRESS} ${WORKER_3_ADDRESS} ${WORKER_4_ADDRESS}\"")
@@ -814,8 +830,10 @@ def api_upload_config():
         for line in content.splitlines():
             if not line.strip() or line.strip().startswith("#"):
                 continue
-            if "=" in line:
-                key, value = line.split("=", 1)
+            # Strip the optional "export " prefix produced by format_env_lines.
+            clean_line = line.replace("export ", "", 1)
+            if "=" in clean_line:
+                key, value = clean_line.split("=", 1)
                 parsed[key.strip()] = value.strip().strip('"')
     persist_config({**defaults, **parsed})
     return jsonify({"success": True, "config": load_config()})

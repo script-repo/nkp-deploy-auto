@@ -159,9 +159,15 @@ else
     log_fail "Insufficient disk space: ${DISK_FREE}GB free (need 50GB+)"
 fi
 
-# Check SSH key exists
+# Check SSH key exists and has secure permissions
 if [ -f "${SSH_PRIVATE_KEY_FILE}" ]; then
     log_pass "SSH private key exists: ${SSH_PRIVATE_KEY_FILE}"
+    KEY_PERMS=$(stat -c "%a" "${SSH_PRIVATE_KEY_FILE}" 2>/dev/null || echo "unknown")
+    if [[ "${KEY_PERMS}" == "600" || "${KEY_PERMS}" == "400" ]]; then
+        log_pass "SSH private key permissions are secure: ${KEY_PERMS}"
+    else
+        log_fail "SSH private key has unsafe permissions: ${KEY_PERMS} (SSH will reject it — run: chmod 600 ${SSH_PRIVATE_KEY_FILE})"
+    fi
 else
     log_fail "SSH private key not found: ${SSH_PRIVATE_KEY_FILE}"
 fi
